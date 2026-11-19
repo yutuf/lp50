@@ -77,6 +77,43 @@
     <div class="meta" style="text-align:left">Print it, find the numbered tick under the white gap, type that number above.</div>
   </div>
 
+  <details class="card">
+    <summary style="font-size:15px;cursor:pointer">Advanced</summary>
+    <div class="row">
+      <div><label for="lh">Label height (dots)</label><input type="number" id="lh" min="80" max="1200" value="240"></div>
+      <div><label for="lg">Gap (dots)</label><input type="number" id="lg" min="0" max="80" value="16"></div>
+      <div><label for="spd">Speed (0 slow)</label><input type="number" id="spd" min="0" max="9" value="0"></div>
+    </div>
+    <div class="meta" style="text-align:left">8 dots = 1 mm. 240 + 16 = 30 mm label with a 2 mm gap.</div>
+    <label for="raw">Raw printer commands (one per line)</label>
+    <textarea id="raw" placeholder="N&#10;A30,40,0,3,1,1,N,&quot;Hi&quot;&#10;P1"></textarea>
+    <button class="ghost" id="sendraw" disabled>Send raw commands</button>
+    <button class="ghost" id="upd" disabled>Update firmware wirelessly</button>
+    <div class="meta" id="updinfo" style="text-align:left"></div>
+  </details>
+
+  <details class="card">
+    <summary style="font-size:15px;cursor:pointer">Test lab (find the printer's limits)</summary>
+    <div class="meta" style="text-align:left">Prints one numbered test label per step. Look at it: a frame with an unbroken diagonal and sharp text is good. Press Good to go to the next step, or Bad (garbled, blank, printer hung or reset) to stop. The last good value is kept. Power-cycle the printer after a bad one.</div>
+    <label for="labsel">Test</label>
+    <select id="labsel">
+      <option value="pause">Pause between chunks (upload speed)</option>
+      <option value="post">Wait after upload</option>
+      <option value="gk">Wait after deleting old image</option>
+      <option value="size">Biggest image size</option>
+      <option value="speed">Print speed</option>
+    </select>
+    <button class="ghost" id="labstart" disabled>Start test</button>
+    <div class="row">
+      <button class="ghost" id="labgood" disabled>Label is good</button>
+      <button class="ghost" id="labbad" disabled>Bad / failed</button>
+    </div>
+    <div class="meta" id="labinfo" style="text-align:left"></div>
+    <button class="ghost" id="labapply" disabled>Use best result</button>
+    <button class="ghost" id="labreset">Reset to safe defaults</button>
+    <div class="meta" id="labcur" style="text-align:left"></div>
+  </details>
+
   <button id="connect" class="ghost" style="margin:0 0 8px">Connect to printer</button>
   <button id="btn" disabled>Print</button>
   <button class="ghost" id="feed" disabled>Feed one label</button>
@@ -130,7 +167,8 @@ function dither(g, bits, t) {          // Floyd-Steinberg
   }
 }
 
-const BUDGET = 4800;   // largest PCX known to upload fine (HACKED test image was 4779 B)
+let BUDGET = 4800;   // largest PCX known to upload fine (HACKED test image was 4779 B); the test lab can raise it
+try { const b = +localStorage.getItem('lp50budget'); if (b > 1000) BUDGET = b; } catch (e) {}
 
 function render(fit = 1) {
   const layout = $('layout').value;
@@ -229,10 +267,21 @@ const SVC = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
 const RXC = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';   // phone -> printer
 const TXC = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';   // printer -> phone
 let rx = null, waiter = null, chunk = 128;
+let fwv = 1;   // firmware version, 2+ announces itself after connecting
+const need2 = () => { if (fwv < 2) { $('status').textContent = 'Flash firmware 2 first (see notes)'; return true; } return false; };
+// upload pacing sent with every print job (firmware 2); the test lab finds faster safe values
+const SAFE = { chunk: 64, pause: 60, post: 2000, gk: 500 };
+let tune = { ...SAFE };
+try { Object.assign(tune, JSON.parse(localStorage.getItem('lp50tune') || '{}')); } catch (e) {}
+// old firmware ignores the extra fields
+const labelArgs = (o = {}) => {
+  const t = { ...tune, ...o };
+  return [$('lh').value, $('lg').value, o.speed ?? $('spd').value, t.chunk, t.pause, t.post, t.gk].join(',');
+};
 
 function setConnected(on, name) {
   $('conn').textContent = on ? 'Connected: ' + name : 'Not connected';
-  $('btn').disabled = !on; $('feed').disabled = !on; $('cal').disabled = !on;
+  $('btn').disabled = !on; $('feed').disabled = !on; $('cal').disabled = !on; $('sendraw').disabled = !on; $('upd').disabled = !on; $('labstart').disabled = !on;
   $('connect').textContent = on ? 'Reconnect' : 'Connect to printer';
 }
 
@@ -250,10 +299,18 @@ $('connect').onclick = async () => {
     tx.addEventListener('characteristicvaluechanged', e => {
       const msg = new TextDecoder().decode(e.target.value).trim();
       if (msg.startsWith('PRINTING')) $('status').textContent = 'Printing...';
+      if (msg.startsWith('FW ')) fwv = parseInt(msg.slice(3)) || 1;
+      if (msg.startsWith('FW ')) $('conn').textContent += ' (firmware ' + msg.slice(3) + ')';
+      if (msg.startsWith('UPD ')) {
+        $('updinfo').innerHTML = 'Update mode for 5 min. Join WiFi <b>LP50-Update</b>, password <b>' + msg.slice(4) + '</b>, open <b>http://192.168.4.1</b> and choose the .bin file.';
+        if (waiter) { waiter('DONE'); waiter = null; }
+      }
       if ((msg.startsWith('DONE') || msg.startsWith('ERR')) && waiter) { waiter(msg); waiter = null; }
     });
+    fwv = 1;
     setConnected(true, dev.name);
     $('status').textContent = 'Ready';
+    try { await rx.writeValueWithoutResponse(new TextEncoder().encode('V\n')); } catch (e) {}
   } catch (e) {
     $('status').textContent = 'Connect failed: ' + e.message;
   }
@@ -278,7 +335,8 @@ function waitResult(ms) {
 }
 
 async function job(header, data) {
-  $('btn').disabled = true; $('feed').disabled = true; $('cal').disabled = true;
+  let r = 'ERR';
+  $('btn').disabled = true; $('feed').disabled = true; $('cal').disabled = true; $('sendraw').disabled = true; $('upd').disabled = true;
   try {
     const head = new TextEncoder().encode(header);
     const all = new Uint8Array(head.length + data.length);
@@ -290,19 +348,21 @@ async function job(header, data) {
       await new Promise(r => setTimeout(r, 3500));      // printer side drops the half job after 3 s
       ok = await writeAll(all, (n, t) => { $('status').textContent = 'Sending ' + Math.round(100 * n / t) + '%'; });
     }
-    const r = await result;
-    $('status').textContent = r.startsWith('DONE') ? 'Done ✓' : 'Error: ' + r;
+    r = await result;
+    $('status').textContent = r.startsWith('DONE') ? 'Done ✓' + r.slice(4) : 'Error: ' + r;
   } catch (e) {
+    r = 'ERR ' + e.message;
     $('status').textContent = 'Error: ' + e.message;
   }
-  $('btn').disabled = !rx; $('feed').disabled = !rx; $('cal').disabled = !rx;
+  $('btn').disabled = !rx; $('feed').disabled = !rx; $('cal').disabled = !rx; $('sendraw').disabled = !rx; $('upd').disabled = !rx;
+  return r;
 }
 
 $('btn').onclick = () => {
   if (!rx) return;
   render();
   const data = toPCX(window.bits);
-  job('J' + data.length + ',' + $('copies').value + ',' + $('density').value + '\n', data);
+  job('J' + data.length + ',' + $('copies').value + ',' + $('density').value + ',' + labelArgs() + '\n', data);
 };
 // black band on top, tick every 10 columns, number every 40: the white gap in the band shows the dead column
 function calBits() {
@@ -320,9 +380,98 @@ function calBits() {
 $('cal').onclick = () => {
   if (!rx) return;
   const data = toPCX(calBits());
-  job('J' + data.length + ',1,' + $('density').value + '\n', data);
+  job('J' + data.length + ',1,' + $('density').value + ',' + labelArgs() + '\n', data);
 };
-$('feed').onclick = () => { if (rx) job('F\n', new Uint8Array(0)); };
+$('sendraw').onclick = () => {
+  if (!rx || need2()) return;
+  const t = $('raw').value.replace(/\r/g, '').trim();
+  if (!t) return;
+  const body = new TextEncoder().encode(t + '\n');
+  job('R' + body.length + '\n', body);
+};
+$('upd').onclick = () => { if (rx && !need2()) job('U\n', new Uint8Array(0)); };
+$('feed').onclick = () => { if (rx) job(fwv >= 2 ? 'F' + $('lh').value + ',' + $('lg').value + '\n' : 'F\n', new Uint8Array(0)); };
+
+// ------------------------------------------------------------------ Test lab
+// Each step prints a label that shows its own settings, so the paper is the log.
+function labBits(lines, targetBytes) {
+  const nz = new Uint8Array(W * H);
+  let s = 2463534242;   // xorshift32, fixed seed: every run prints the same pattern
+  for (let i = 0; i < W * H; i++) { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; nz[i] = s & 1; }
+  const b = new Uint8Array(W * H);
+  const withRows = n => {
+    b.fill(0);
+    for (let y = H - 6 - n; y < H - 6; y++) for (let x = 8; x < W - 8; x++) if (y >= 6) b[y * W + x] = nz[y * W + x];
+  };
+  if (targetBytes) {                                    // add noise rows until the PCX reaches the target size
+    let lo = 0, hi = H - 12;
+    while (lo < hi) { const m = (lo + hi) >> 1; withRows(m); if (toPCX(b).length >= targetBytes) hi = m; else lo = m + 1; }
+    withRows(lo);
+  }
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d', { willReadFrequently: true });
+  g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
+  const fs = targetBytes ? 16 : 20, ls = targetBytes ? 19 : 26;   // compact text on noise labels leaves room for more data
+  g.fillStyle = '#000'; g.font = 'bold ' + fs + 'px system-ui, sans-serif'; g.textBaseline = 'top';
+  lines.forEach((l, i) => g.fillText(l, 16, 12 + i * ls));
+  const d = g.getImageData(0, 0, W, H).data;
+  for (let y = 8; y < 12 + lines.length * ls + 4; y++) for (let x = 8; x < W - 8; x++) b[y * W + x] = 0;   // clear a box behind the text
+  for (let i = 0; i < W * H; i++) if (d[i * 4] < 128) b[i] = 1;
+  for (let x = 0; x < W; x++) for (let k = 0; k < 3; k++) { b[k * W + x] = 1; b[(H - 1 - k) * W + x] = 1; }   // frame
+  for (let y = 0; y < H; y++) for (let k = 0; k < 3; k++) { b[y * W + k] = 1; b[y * W + W - 1 - k] = 1; }
+  for (let i = 0; i < H; i++) { const x = Math.round(i * (W - 1) / (H - 1)); b[i * W + x] = 1; b[i * W + Math.min(W - 1, x + 1)] = 1; }   // diagonal
+  return b;
+}
+
+const SWEEPS = {
+  pause: { title: 'Pause between chunks', vals: [60, 40, 30, 20, 15, 10, 5], name: v => 'pause ' + v + ' ms', over: v => ({ pause: v }), apply: v => { tune.pause = v; } },
+  post:  { title: 'Wait after upload',    vals: [2000, 1200, 800, 500, 300, 100, 0], name: v => 'post-wait ' + v + ' ms', over: v => ({ post: v }), apply: v => { tune.post = v; } },
+  gk:    { title: 'Wait after delete',    vals: [500, 300, 150, 50, 0], name: v => 'delete-wait ' + v + ' ms', over: v => ({ gk: v }), apply: v => { tune.gk = v; } },
+  size:  { title: 'Image size',           vals: [3, 4, 5, 6, 7, 8], name: v => 'size ~' + v + ' KB', target: v => v * 1024, apply: (v, bytes) => { try { localStorage.setItem('lp50budget', String(bytes)); } catch (e) {} BUDGET = bytes; } },
+  speed: { title: 'Print speed',          vals: [0, 1, 2, 3, 4, 5], name: v => 'speed S' + v, over: v => ({ speed: v }), apply: v => { $('spd').value = v; } },
+};
+let labAnswer = null, labBest = null, labRunning = false;
+const labShowCur = () => { $('labcur').textContent = 'Current: chunk ' + tune.chunk + ' B, pause ' + tune.pause + ' ms, post-wait ' + tune.post + ' ms, delete-wait ' + tune.gk + ' ms, max image ' + BUDGET + ' B, speed S' + $('spd').value; };
+const labAsk = () => new Promise(res => { labAnswer = res; $('labgood').disabled = false; $('labbad').disabled = false; });
+const labReply = a => { if (!labAnswer) return; $('labgood').disabled = true; $('labbad').disabled = true; const f = labAnswer; labAnswer = null; f(a); };
+$('labgood').onclick = () => labReply('good');
+$('labbad').onclick = () => labReply('bad');
+
+$('labstart').onclick = async () => {
+  if (!rx || need2() || labRunning) return;
+  labRunning = true; labBest = null; $('labapply').disabled = true; $('labstart').disabled = true;
+  const key = $('labsel').value, sw = SWEEPS[key];
+  for (let i = 0; i < sw.vals.length; i++) {
+    const v = sw.vals[i];
+    const data = toPCX(labBits(['TEST ' + key.toUpperCase(), sw.name(v), 'step ' + (i + 1) + '/' + sw.vals.length], sw.target ? sw.target(v) : 0));
+    $('labinfo').textContent = 'Step ' + (i + 1) + '/' + sw.vals.length + ': ' + sw.name(v) + ' (' + data.length + ' B) - sending...';
+    const t0 = performance.now();
+    const r = await job('J' + data.length + ',1,' + $('density').value + ',' + labelArgs(sw.over ? sw.over(v) : {}) + '\n', data);
+    const sec = ((performance.now() - t0) / 1000).toFixed(1);
+    if (!r.startsWith('DONE')) { $('labinfo').textContent = 'Step ' + (i + 1) + ' failed (' + r + '). Stopped. Power-cycle the printer.'; break; }
+    $('labinfo').textContent = 'Step ' + (i + 1) + '/' + sw.vals.length + ': ' + sw.name(v) + ' - ready to print after ' + sec + ' s. Wait for the label, then judge it.';
+    const a = await labAsk();
+    if (a !== 'good') { $('labinfo').textContent = 'Stopped at ' + sw.name(v) + '. ' + (labBest ? 'Best good: ' + sw.name(labBest.v) + '.' : 'Nothing was good - keep the safe defaults.') + ' Power-cycle the printer.'; break; }
+    labBest = { v, bytes: data.length, sec };
+    if (i === sw.vals.length - 1) $('labinfo').textContent = 'All steps good. Best: ' + sw.name(v) + '.';
+  }
+  $('labapply').disabled = !labBest;
+  labRunning = false; $('labstart').disabled = !rx;
+};
+$('labapply').onclick = () => {
+  if (!labBest) return;
+  const sw = SWEEPS[$('labsel').value];
+  sw.apply(labBest.v, labBest.bytes);
+  try { localStorage.setItem('lp50tune', JSON.stringify(tune)); } catch (e) {}
+  $('labapply').disabled = true; labShowCur();
+  $('labinfo').textContent = 'Saved on this phone. New prints use it.';
+};
+$('labreset').onclick = () => {
+  tune = { ...SAFE }; BUDGET = 4800;
+  try { localStorage.removeItem('lp50tune'); localStorage.removeItem('lp50budget'); } catch (e) {}
+  labShowCur();
+};
+labShowCur();
 
 if (typeof module !== 'undefined') module.exports = { toPCX, W, H };
 else render();
