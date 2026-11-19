@@ -172,7 +172,9 @@ function render() {
   }
   pv.putImageData(id, 0, 0);
   const pct = Math.round(100 * black / (W * H));
-  $('cover').innerHTML = pct > 35 ? '<span class="warn">' + pct + '% black - may print faint or fail</span>' : pct + '% black';
+  const kb = toPCX(bits).length;
+  const info = pct + '% black, ' + (kb / 1024).toFixed(1) + ' KB';
+  $('cover').innerHTML = (pct > 35 || kb > 8000) ? '<span class="warn">' + info + ' - big files may fail</span>' : info;
 }
 
 // Monochrome PCX, same layout as the file that worked on the printer
