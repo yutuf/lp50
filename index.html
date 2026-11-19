@@ -2,219 +2,387 @@
 <html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>LP-50 Printer</title>
+<title>LP-50 Label Studio</title>
+<meta name="description" content="Design and print labels on an LP-50 thermal printer from your phone.">
+<meta name="theme-color" content="#34322c">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="icon" href="icon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="LP-50">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&display=swap" rel="stylesheet">
 <style>
-  :root{--case:#cdc8b8;--case-hi:#ddd9cb;--case-lo:#a9a48f;--edge:#5d5a4d;--ink:#2b2a26;--label:#4a4739;--lcd:#a3b18a;--lcd-ink:#27331f;--key:#bdb8a6;--accent:#c0562b}
+  :root{--desk:#e7e1d1;--desk-dot:#d3ccb8;--case:#dcd6c6;--case-hi:#ebe6d9;--case-lo:#b5ae99;--edge:#6f6a5a;--ink:#25231f;--muted:#5c5747;
+    --lcd:#9fb07c;--lcd-ink:#1f2e17;--accent:#c8642d;--accent-dk:#6d2f12;--charcoal:#34322c;--field:#fffdf6;--line:#c9c1ab}
   *{box-sizing:border-box}
-  body{margin:0;min-height:100vh;font-family:"Courier New",ui-monospace,Menlo,Consolas,monospace;color:var(--ink);
-    background:#86826f radial-gradient(ellipse at 50% -10%,#a29d8b,#7b7767 75%)}
-  header,main{max-width:520px;margin:0 auto}
-  header{padding:16px 12px 8px}
-  main{padding:6px 12px 48px}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);
+    background:var(--desk) radial-gradient(var(--desk-dot) 1px,transparent 1.3px) 0 0/12px 12px}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 16px 40px}
+  [hidden]{display:none!important}
+  :focus-visible{outline:3px solid #c8642d99;outline-offset:2px}
 
-  /* nameplate + status LEDs */
-  .plate{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;border-radius:10px 10px 4px 4px;
-    background:linear-gradient(var(--case-hi),var(--case));box-shadow:inset 0 1px 0 #fff8,inset 0 -3px 0 var(--case-lo),0 3px 0 var(--edge),0 6px 10px #0004}
-  h1{margin:0;font:900 26px/1 "Arial Black","Helvetica Neue",Arial,sans-serif;letter-spacing:2px;color:#3a3830;text-shadow:0 1px 0 #fff9}
-  .model{margin-top:5px;font:700 9px Arial,sans-serif;letter-spacing:1.6px;color:#5e5a4a}
-  .leds{display:flex;gap:12px}
-  .ledbox{display:flex;flex-direction:column;align-items:center;gap:5px;font:700 8px Arial,sans-serif;letter-spacing:1px;color:var(--label)}
-  .led{display:block;width:12px;height:12px;border-radius:50%;background:#4a4a42;box-shadow:inset 0 1px 2px #000a,0 1px 0 #fff7;transition:background .15s,box-shadow .15s}
-  .led.g.on{background:#5bff6a;box-shadow:0 0 9px #5bff6a,inset 0 0 3px #fff9}
-  .led.a.on{background:#ffb02e;box-shadow:0 0 9px #ffb02e,inset 0 0 3px #fff9;animation:blink .5s steps(2) infinite}
-  .led.r.on{background:#ff4a3a;box-shadow:0 0 9px #ff4a3a,inset 0 0 3px #fff9}
+  /* pixel icons (drawn from tiny bitmaps in the script) */
+  [data-ico]::before{content:"";display:inline-block;flex:none;width:1.2em;height:1.2em;margin-right:.55em;vertical-align:-.2em;background:currentColor;
+    -webkit-mask:var(--ico) center/contain no-repeat;mask:var(--ico) center/contain no-repeat}
+  .icon-only::before{margin:0}
+
+  /* top bar */
+  .topbar{display:flex;align-items:center;gap:12px;padding:14px 0 16px}
+  .logo{width:44px;height:44px;image-rendering:pixelated;border-radius:10px;box-shadow:0 3px 0 var(--edge),0 6px 10px #0003}
+  .brand h1{margin:0;font:700 24px/1 Silkscreen,"Courier New",monospace;letter-spacing:1px}
+  .brand span{display:block;margin-top:3px;font:400 11px/1 Silkscreen,"Courier New",monospace;letter-spacing:1.5px;color:var(--muted)}
+  .topbar .key{margin-left:auto;width:auto}
+
+  .layout{display:grid;gap:20px;grid-template-columns:minmax(0,1fr)}
+  .layout>*{min-width:0}
+  .brand{min-width:0}
+  .brand h1,.brand span{white-space:nowrap}
+  @media (max-width:480px){.topbar{gap:10px}.logo{width:38px;height:38px}.brand h1{font-size:20px}.topbar .key{padding:9px 10px;font-size:11px;max-width:48%}}
+  @media (min-width:900px){.layout{grid-template-columns:minmax(340px,440px) minmax(0,1fr);align-items:start}.stagecol{position:sticky;top:12px}}
+
+  /* printer stage */
+  .stage{border-radius:16px;padding:20px 18px 16px;background:linear-gradient(#f4f0e6,#e2dbc8);box-shadow:inset 0 1px 0 #fff,0 3px 0 var(--case-lo),0 12px 26px #0002}
+  .printer{position:relative;max-width:400px;margin:0 auto}
+  .printer-art{display:block;width:100%;height:auto;filter:drop-shadow(0 7px 5px #0003)}
+  .led{fill:#3d3c35;transition:fill .15s}
+  .led.g.on{fill:#5bff6a;filter:drop-shadow(0 0 .8px #5bff6a)}
+  .led.a.on{fill:#ffb02e;filter:drop-shadow(0 0 .8px #ffb02e);animation:blink .5s steps(2) infinite}
+  .led.r.on{fill:#ff4a3a;filter:drop-shadow(0 0 .8px #ff4a3a)}
   @keyframes blink{50%{opacity:.35}}
-
-  /* LCD window */
-  .lcd{min-height:32px;padding:8px 10px;border-radius:4px;background:var(--lcd) repeating-linear-gradient(0deg,#0000 0 2px,#0000000d 2px 3px);color:var(--lcd-ink);
-    font:700 13px/1.35 "Courier New",monospace;letter-spacing:.5px;text-transform:uppercase;box-shadow:inset 0 2px 6px #0007,0 1px 0 #fff7}
-  header .lcd{margin-top:10px}
-  #status{margin-top:16px}
-
-  /* panels */
-  .card{position:relative;margin-bottom:14px;padding:32px 14px 14px;border-radius:8px;
-    background:linear-gradient(var(--case-hi),var(--case));box-shadow:inset 0 1px 0 #fff8,inset 0 -3px 0 var(--case-lo),0 3px 0 var(--edge),0 6px 10px #0004}
-  .card::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:8px;background-repeat:no-repeat;
-    background-image:radial-gradient(circle at 9px 9px,#8c8774 0 2.5px,#0000 3px),radial-gradient(circle at calc(100% - 9px) 9px,#8c8774 0 2.5px,#0000 3px),
-      radial-gradient(circle at 9px calc(100% - 9px),#8c8774 0 2.5px,#0000 3px),radial-gradient(circle at calc(100% - 9px) calc(100% - 9px),#8c8774 0 2.5px,#0000 3px)}
-  .card[data-title]::before{content:attr(data-title);position:absolute;top:11px;left:24px;font:700 10px Arial,sans-serif;letter-spacing:2.5px;text-transform:uppercase;color:var(--label);text-shadow:0 1px 0 #fff9}
-  details.card{padding:0}
-  summary{list-style:none;cursor:pointer;padding:12px 24px;font:700 10px Arial,sans-serif;letter-spacing:2.5px;text-transform:uppercase;color:var(--label);text-shadow:0 1px 0 #fff9}
-  summary::-webkit-details-marker{display:none}
-  summary::before{content:"\25B8  "}
-  details[open]>summary::before{content:"\25BE  "}
-  details.card>*:not(summary){margin-left:16px;margin-right:16px}
-  details.card>*:last-child{margin-bottom:16px}
-
-  /* label in the paper path */
-  .pvwrap{display:flex;justify-content:center;padding:14px;border-radius:6px;background:#3a3832;box-shadow:inset 0 4px 10px #000b,0 1px 0 #fff7}
-  canvas#pv{width:100%;max-width:360px;image-rendering:pixelated;background:#fbf9ef;border-radius:3px;box-shadow:0 0 0 1px #0003,0 5px 9px #000a}
-  .meta{margin-top:7px;font:700 11px "Courier New",monospace;color:#5e5a4a;text-align:right}
-  .warn{color:#9a2f00}
-
-  /* controls */
-  label{display:block;margin:12px 0 5px;font:700 10px Arial,sans-serif;letter-spacing:1.5px;text-transform:uppercase;color:var(--label)}
-  textarea,select,input[type=number],input[type=text]{width:100%;font-weight:600;padding:9px 10px;border:0;border-radius:4px;background:#f1edda;color:var(--ink);font:inherit;font-size:15px;box-shadow:inset 0 2px 4px #0005,0 1px 0 #fff8}
-  textarea{min-height:72px;resize:vertical}
-  textarea:focus,select:focus,input:focus,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-  input[type=range],input[type=checkbox]{accent-color:var(--accent)}
-  input[type=range]{width:100%}
-  .row{display:flex;gap:10px}.row>*{flex:1}
-  .chk{display:flex;align-items:center;gap:8px;margin:9px 0}
-  .chk input{width:20px;height:20px;flex:none}
-  .chk label{margin:0;font:600 13px "Courier New",monospace;letter-spacing:0;text-transform:none;color:var(--ink)}
-  .file{margin:0;padding:13px;border:2px dashed #8f8a76;border-radius:4px;background:#d7d2c1;text-align:center;font:700 12px Arial,sans-serif;letter-spacing:1.5px;color:var(--label);cursor:pointer}
-  .file input{display:none}
-  .keys2{display:flex;gap:10px}.keys2>*{flex:1}
-  .keys2 .ghost{margin-top:12px}
-  .hint{margin-top:8px;font:700 11px "Courier New",monospace;color:#5e5a4a;text-align:left}
+  .labelwrap{position:relative;width:76%;margin:-10.9% auto 0;z-index:1}
+  .labelwrap::after{content:"";position:absolute;left:0;right:0;top:0;height:10px;background:linear-gradient(#0006,transparent);pointer-events:none}
+  .labelwrap canvas{display:block;width:100%;height:auto;image-rendering:pixelated;background:#fbf9ef;border-radius:0 0 5px 5px;box-shadow:0 1px 0 #0002,0 8px 12px #0003}
+  .busy .labelwrap canvas{animation:feed .7s steps(3) infinite}
+  @keyframes feed{0%{transform:translateY(-5px)}100%{transform:translateY(0)}}
+  .lcd{margin-top:18px;padding:8px 12px;min-height:66px;border-radius:6px;background:var(--lcd) repeating-linear-gradient(0deg,transparent 0 2px,#00000010 2px 3px);color:var(--lcd-ink);
+    font:22px/1.05 VT323,"Courier New",monospace;text-transform:uppercase;box-shadow:inset 0 2px 6px #0007,0 0 0 4px var(--charcoal),0 3px 0 4px var(--edge)}
+  #status{min-height:1.05em;opacity:.85}
+  .meta{margin-top:12px;text-align:center;font-size:13px;color:var(--muted)}
+  .warn{color:#9a2f00;font-weight:600}
 
   /* keys */
-  button{width:100%;padding:13px;border:0;border-radius:6px;cursor:pointer;font:700 13px Arial,sans-serif;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink);
-    background:linear-gradient(#e6e2d3,var(--key));box-shadow:inset 0 1px 0 #fffa,0 4px 0 #7d7966,0 6px 6px #0004;transition:transform .05s,box-shadow .05s}
-  button:active:not(:disabled){transform:translateY(3px);box-shadow:inset 0 1px 0 #fff6,0 1px 0 #7d7966,0 2px 3px #0004}
-  button:disabled{opacity:.5;cursor:not-allowed;box-shadow:0 1px 0 #7d7966;transform:none}
-  .ghost{margin-top:12px}
-  #connect{margin:6px 0 14px!important}
-  #btn{margin-top:4px;padding:17px;font-size:17px;letter-spacing:3px;color:#ffd27a;background:linear-gradient(#4a4840,#2c2b26);box-shadow:inset 0 1px 0 #fff3,0 4px 0 #15140f,0 6px 7px #0006}
-  #btn:active:not(:disabled){box-shadow:inset 0 1px 0 #fff2,0 1px 0 #15140f,0 2px 3px #0006}
-  #feed{margin-top:16px}
+  .key{display:inline-flex;align-items:center;justify-content:center;width:100%;padding:12px 16px;border:0;border-radius:10px;cursor:pointer;
+    font:700 14px/1.1 Silkscreen,"Courier New",monospace;letter-spacing:.5px;color:var(--ink);text-align:center;
+    background:linear-gradient(#f3eee2,#cfc8b4);box-shadow:inset 0 1px 0 #fff,0 4px 0 var(--edge),0 6px 9px #0003;transition:transform .05s,box-shadow .05s}
+  .key:active:not(:disabled){transform:translateY(3px);box-shadow:inset 0 1px 0 #fff,0 1px 0 var(--edge),0 2px 3px #0003}
+  .key:disabled{opacity:.5;cursor:not-allowed}
+  .key.small{padding:10px 12px;font-size:12px}
+  .key.print{font-size:19px;color:#fff8ec;background:linear-gradient(#e47d42,#b9552a);box-shadow:inset 0 1px 0 #ffffff55,0 4px 0 var(--accent-dk),0 6px 10px #0004}
+  .key.print:active:not(:disabled){box-shadow:inset 0 1px 0 #fff3,0 1px 0 var(--accent-dk)}
+  label.key{cursor:pointer}
+
+  /* action bar: under the printer on wide screens, pinned to the bottom on phones */
+  .actionbar{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,1.7fr);gap:10px;align-items:end;margin-top:18px}
+  .actionbar .stepper button{width:38px}
+  .actionbar .stepper input{width:40px;min-width:40px}
+  .actionbar .key{padding-left:8px;padding-right:8px}
+  .mini{display:block;margin-bottom:5px;font:700 10px/1 Silkscreen,"Courier New",monospace;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
+  @media (max-width:899px){
+    .actionbar{position:fixed;left:0;right:0;bottom:0;z-index:30;margin:0;padding:10px 14px calc(12px + env(safe-area-inset-bottom));
+      background:linear-gradient(var(--case-hi),var(--case));box-shadow:0 -3px 0 var(--case-lo),0 -10px 22px #0003}
+    .wrap{padding-bottom:120px}
+  }
+
+  /* tabs + panel */
+  .tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-top:2px}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{flex:1 0 auto;display:flex;align-items:center;justify-content:center;padding:11px 14px;border:0;border-radius:12px 12px 0 0;cursor:pointer;
+    font:700 12px Silkscreen,"Courier New",monospace;letter-spacing:.5px;color:#4a463b;background:var(--case-lo);box-shadow:inset 0 -4px 0 #0000000d}
+  .tab[aria-selected="true"]{color:var(--ink);background:var(--case);box-shadow:none}
+  .tab[aria-selected="true"]::before{color:var(--accent)}
+  .panelbox{padding:20px;border-radius:0 14px 14px 14px;background:var(--case);box-shadow:inset 0 1px 0 var(--case-hi),0 3px 0 var(--case-lo),0 12px 26px #0002}
+  h2{display:flex;align-items:center;margin:24px 0 10px;font:700 12px Silkscreen,"Courier New",monospace;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
+  .tabpanel>h2:first-child,.group>h2:first-child{margin-top:0}
+  .group{margin-top:14px;padding:16px;border-radius:12px;background:var(--case-hi);box-shadow:inset 0 1px 3px #0002}
+  .group:first-child{margin-top:0}
+  details.group>summary{cursor:pointer;list-style:none;font:700 12px Silkscreen,"Courier New",monospace;letter-spacing:.5px;text-transform:uppercase;color:var(--ink)}
+  details.group>summary::-webkit-details-marker{display:none}
+  details.group>summary::after{content:"+";float:right;font-size:16px;line-height:1}
+  details.group[open]>summary::after{content:"\2212"}
+  details.group[open]>summary{margin-bottom:6px}
+  .hint{margin:8px 0 0;font-size:13px;color:var(--muted)}
+
+  /* layout tiles */
+  .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px}
+  .tile{display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 6px 12px;border:2px solid transparent;border-radius:12px;cursor:pointer;
+    font:600 13px/1.2 system-ui,sans-serif;color:var(--ink);background:linear-gradient(#f7f3e9,#ddd6c3);box-shadow:inset 0 1px 0 #fff,0 3px 0 var(--case-lo)}
+  .tile::before{width:34px;height:34px;margin:0;color:#4d493e}
+  .tile[aria-pressed="true"]{border-color:var(--accent);background:linear-gradient(#fff6ec,#f2dac4)}
+  .tile[aria-pressed="true"]::before{color:var(--accent)}
+  .tile:active{transform:translateY(2px);box-shadow:inset 0 1px 0 #fff,0 1px 0 var(--case-lo)}
+
+  /* fields */
+  label.field{display:block;margin:16px 0 6px;font:700 11px/1.2 system-ui,sans-serif;letter-spacing:.6px;text-transform:uppercase;color:var(--muted)}
+  textarea,input[type=text],input[type=number],select{width:100%;padding:11px 12px;border:2px solid var(--line);border-radius:10px;background:var(--field);color:var(--ink);font:500 16px/1.35 system-ui,sans-serif}
+  textarea{min-height:84px;resize:vertical}
+  textarea:focus,input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px #c8642d33}
+  .rangehead{display:flex;justify-content:space-between;align-items:flex-end}
+  .rangehead label.field{margin-bottom:2px}
+  output{font:22px/1 VT323,"Courier New",monospace;color:var(--ink)}
+  input[type=range]{width:100%;margin:6px 0 0;accent-color:var(--accent)}
+  .seg{display:flex;gap:3px;padding:3px;border-radius:11px;background:var(--case-lo)}
+  .seg button{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;padding:9px 4px;border:0;border-radius:9px;cursor:pointer;background:transparent;color:#3d3a31;font:600 17px/1 system-ui,sans-serif}
+  .seg button[aria-pressed="true"]{background:#fbf8ef;color:var(--ink);box-shadow:0 1px 0 #0002,0 2px 4px #0001}
+  .seg button.icon-only::before{width:20px;height:16px}
+
+  /* switches */
+  .switches{border-radius:12px;background:var(--case-hi);padding:2px 14px;box-shadow:inset 0 1px 3px #0002}
+  .switch{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px dashed #00000018;cursor:pointer;font-size:15px}
+  .switch:last-child{border-bottom:0}
+  .switch input{-webkit-appearance:none;appearance:none;flex:none;position:relative;width:48px;height:28px;margin:0;border-radius:14px;cursor:pointer;background:#a39c86;box-shadow:inset 0 2px 3px #0004;transition:background .15s}
+  .switch input::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fbf8ef;box-shadow:0 1px 2px #0006;transition:left .15s}
+  .switch input:checked{background:var(--accent)}
+  .switch input:checked::after{left:23px}
+
+  /* chips */
+  .chips{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+  .ins{margin-top:8px}
+  .ins .mini{margin:0 2px 0 0}
+  .chip{display:inline-flex;align-items:center;padding:7px 12px;border:0;border-radius:999px;cursor:pointer;background:#fbf8ef;color:var(--ink);font:600 13px/1 system-ui,sans-serif;box-shadow:0 2px 0 var(--case-lo)}
+  .chip:active{transform:translateY(1px);box-shadow:0 1px 0 var(--case-lo)}
+  .tpl{display:inline-flex}
+  .tpl .chip:first-child{border-radius:999px 0 0 999px;padding-right:10px}
+  .tpl .chip.x{border-radius:0 999px 999px 0;padding:7px 11px 7px 9px;background:#efe6d3;color:#8a2c10;border-left:1px solid #0001}
+  .saverow{display:flex;gap:10px}
+  .saverow .key{width:auto}
+
+  /* image */
+  .drop{display:flex;align-items:center;gap:14px;padding:14px;border:2px dashed #a99f86;border-radius:14px;background:#f6f1e4;transition:background .15s,border-color .15s}
+  .drop.over{background:#fff3e6;border-color:var(--accent)}
+  .thumb{flex:none;display:grid;place-items:center;width:96px;height:72px;border-radius:9px;background:#e6dfcc center/cover no-repeat;color:#9c947d;box-shadow:inset 0 1px 3px #0003}
+  .thumb::before{width:34px;height:34px;margin:0}
+  .thumb.has::before{display:none}
+  .drop .btns{flex:1;display:grid;gap:9px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .row3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+
+  /* steppers + darkness meter */
+  .stepper{display:flex;overflow:hidden;border:2px solid var(--line);border-radius:11px;background:var(--field);box-shadow:0 3px 0 var(--case-lo)}
+  .stepper button{flex:none;width:46px;border:0;cursor:pointer;background:#efe9da;color:var(--ink);font:700 22px/1 system-ui,sans-serif}
+  .stepper button:active{background:#e2dac6}
+  .stepper input{flex:1;min-width:52px;width:60px;padding:6px 0;border:0;border-radius:0;background:transparent;text-align:center;font:26px/1 VT323,"Courier New",monospace;-moz-appearance:textfield}
+  .stepper input:focus{box-shadow:none}
+  .stepper input::-webkit-inner-spin-button,.stepper input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+  .dbar{display:flex;gap:3px;margin-top:12px}
+  .dbar i{flex:1;height:16px;border-radius:2px;background:#cdc5ae}
+  .dbar i.on{background:linear-gradient(#5a564b,#2b2924)}
+  .dbar i.on.hot{background:linear-gradient(#e47d42,#b9552a)}
 </style>
 </head><body>
-<header>
-  <div class="plate">
-    <div><h1>LP-50</h1><div class="model">THERMAL LABEL PRINTER &middot; 50 &times; 30 MM</div></div>
-    <div class="leds">
-      <div class="ledbox"><i class="led g" id="led-power"></i>POWER</div>
-      <div class="ledbox"><i class="led a" id="led-busy"></i>BUSY</div>
-      <div class="ledbox"><i class="led r" id="led-error"></i>ERROR</div>
-    </div>
-  </div>
-  <div class="lcd" id="conn">Not connected</div>
+<div class="wrap">
+<header class="topbar">
+  <img class="logo" src="icon.svg" alt="" width="44" height="44">
+  <div class="brand"><h1>LP-50</h1><span>Label Studio</span></div>
+  <button id="connect" class="key small" data-ico="bt">Connect to printer</button>
 </header>
-<main>
-  <div class="card" data-title="Label preview">
-    <div class="pvwrap"><canvas id="pv" width="360" height="200"></canvas></div>
-    <div class="meta" id="cover"></div>
+
+<div class="layout">
+  <div class="stagecol">
+    <section class="stage" aria-label="Printer and label preview">
+      <div class="printer">
+        <svg class="printer-art" viewBox="0 0 64 34" shape-rendering="crispEdges" aria-hidden="true"><path fill="#2b2924" d="M12 1h40v1h-40zM9 2h3v1h-3zM52 2h3v1h-3zM7 3h2v1h-2zM55 3h2v1h-2zM5 4h1v1h-1zM57 4h2v1h-2zM4 5h1v1h-1zM59 5h1v1h-1zM4 6h1v1h-1zM59 6h1v1h-1zM4 7h1v1h-1zM59 7h1v1h-1zM4 8h1v1h-1zM59 8h1v1h-1zM4 9h1v1h-1zM59 9h1v1h-1zM4 10h1v1h-1zM59 10h1v1h-1zM4 11h1v1h-1zM59 11h1v1h-1zM4 12h1v1h-1zM59 12h1v1h-1zM4 13h56v1h-56zM3 14h58v1h-58zM3 15h1v1h-1zM60 15h1v1h-1zM3 16h1v1h-1zM47 16h11v1h-11zM60 16h1v1h-1zM3 17h1v1h-1zM7 17h15v1h-15zM47 17h1v1h-1zM57 17h1v1h-1zM60 17h1v1h-1zM3 18h1v1h-1zM7 18h15v1h-15zM47 18h1v1h-1zM57 18h1v1h-1zM60 18h1v1h-1zM3 19h1v1h-1zM7 19h15v1h-15zM47 19h1v1h-1zM57 19h1v1h-1zM60 19h1v1h-1zM3 20h1v1h-1zM7 20h15v1h-15zM47 20h1v1h-1zM57 20h1v1h-1zM60 20h1v1h-1zM3 21h1v1h-1zM47 21h11v1h-11zM60 21h1v1h-1zM3 22h1v1h-1zM60 22h1v1h-1zM3 23h1v1h-1zM60 23h1v1h-1zM3 24h1v1h-1zM60 24h1v1h-1zM3 25h1v1h-1zM60 25h1v1h-1zM3 26h1v1h-1zM60 26h1v1h-1zM3 27h1v1h-1zM60 27h1v1h-1zM3 28h1v1h-1zM60 28h1v1h-1zM3 29h1v1h-1zM60 29h1v1h-1zM3 30h1v1h-1zM60 30h1v1h-1zM3 31h58v1h-58zM6 32h7v1h-7zM51 32h7v1h-7zM6 33h7v1h-7zM51 33h7v1h-7z"/><path fill="#59554b" d="M12 2h2v1h-2zM35 2h17v1h-17zM13 3h42v1h-42zM8 4h49v1h-49zM5 5h1v1h-1zM8 5h14v1h-14zM23 5h3v1h-3zM28 5h6v1h-6zM37 5h1v1h-1zM41 5h14v1h-14zM5 6h17v1h-17zM23 6h3v1h-3zM27 6h1v1h-1zM29 6h5v1h-5zM35 6h3v1h-3zM39 6h1v1h-1zM41 6h14v1h-14zM5 7h17v1h-17zM23 7h3v1h-3zM28 7h2v1h-2zM33 7h1v1h-1zM37 7h1v1h-1zM39 7h1v1h-1zM41 7h14v1h-14zM5 8h17v1h-17zM23 8h3v1h-3zM27 8h9v1h-9zM37 8h1v1h-1zM39 8h1v1h-1zM41 8h14v1h-14zM5 9h17v1h-17zM25 9h1v1h-1zM27 9h7v1h-7zM37 9h1v1h-1zM41 9h14v1h-14zM5 10h50v1h-50z"/><path fill="#7b766a" d="M14 2h21v1h-21zM9 3h4v1h-4zM6 4h2v1h-2zM6 5h2v1h-2z"/><path fill="#efe9da" d="M22 5h1v1h-1zM26 5h2v1h-2zM34 5h3v1h-3zM38 5h3v1h-3zM22 6h1v1h-1zM26 6h1v1h-1zM28 6h1v1h-1zM34 6h1v1h-1zM38 6h1v1h-1zM40 6h1v1h-1zM22 7h1v1h-1zM26 7h2v1h-2zM30 7h3v1h-3zM34 7h3v1h-3zM38 7h1v1h-1zM40 7h1v1h-1zM22 8h1v1h-1zM26 8h1v1h-1zM36 8h1v1h-1zM38 8h1v1h-1zM40 8h1v1h-1zM22 9h3v1h-3zM26 9h1v1h-1zM34 9h3v1h-3zM38 9h3v1h-3zM4 15h54v1h-54z"/><path fill="#45423a" d="M55 5h4v1h-4zM55 6h4v1h-4zM55 7h4v1h-4zM55 8h4v1h-4zM55 9h4v1h-4zM55 10h4v1h-4zM5 11h54v1h-54zM5 12h54v1h-54z"/><path fill="#b8b09a" d="M58 15h2v1h-2zM58 16h2v1h-2zM58 17h2v1h-2zM58 18h2v1h-2zM58 19h2v1h-2zM58 20h2v1h-2zM58 21h2v1h-2zM58 22h2v1h-2zM7 23h1v1h-1zM9 23h1v1h-1zM11 23h1v1h-1zM13 23h1v1h-1zM15 23h1v1h-1zM17 23h1v1h-1zM19 23h1v1h-1zM21 23h1v1h-1zM43 23h1v1h-1zM45 23h1v1h-1zM47 23h1v1h-1zM49 23h1v1h-1zM51 23h1v1h-1zM53 23h1v1h-1zM55 23h1v1h-1zM57 23h3v1h-3zM58 24h2v1h-2zM58 25h2v1h-2zM58 26h2v1h-2zM58 27h2v1h-2zM58 28h2v1h-2zM4 29h56v1h-56zM4 30h56v1h-56z"/><path fill="#d9d2bf" d="M4 16h43v1h-43zM4 17h3v1h-3zM22 17h25v1h-25zM4 18h3v1h-3zM22 18h25v1h-25zM4 19h3v1h-3zM22 19h25v1h-25zM4 20h3v1h-3zM22 20h25v1h-25zM4 21h43v1h-43zM4 22h54v1h-54zM4 23h3v1h-3zM8 23h1v1h-1zM10 23h1v1h-1zM12 23h1v1h-1zM14 23h1v1h-1zM16 23h1v1h-1zM18 23h1v1h-1zM20 23h1v1h-1zM22 23h21v1h-21zM44 23h1v1h-1zM46 23h1v1h-1zM48 23h1v1h-1zM50 23h1v1h-1zM52 23h1v1h-1zM54 23h1v1h-1zM56 23h1v1h-1zM4 24h54v1h-54zM4 25h2v1h-2zM4 26h2v1h-2zM4 27h2v1h-2zM4 28h54v1h-54z"/><path fill="#d0692f" d="M48 17h9v1h-9zM48 18h9v1h-9zM48 19h9v1h-9z"/><path fill="#8f4520" d="M48 20h9v1h-9z"/><path fill="#6b665a" d="M6 25h52v1h-52z"/><path fill="#151411" d="M6 26h52v1h-52zM6 27h52v1h-52z"/><rect id="led-power" class="led g" x="8" y="18" width="3" height="2"/><rect id="led-busy" class="led a" x="13" y="18" width="3" height="2"/><rect id="led-error" class="led r" x="18" y="18" width="3" height="2"/></svg>
+        <div class="labelwrap"><canvas id="pv" width="360" height="200" role="img" aria-label="Label preview"></canvas></div>
+      </div>
+      <div class="lcd" role="status" aria-live="polite"><div id="conn">Not connected</div><div id="status"></div></div>
+      <div class="meta" id="cover"></div>
+    </section>
+    <div class="actionbar">
+      <div>
+        <span class="mini">Copies</span>
+        <div class="stepper">
+          <button type="button" data-step="copies" data-d="-1" aria-label="Fewer copies">&minus;</button>
+          <input type="number" id="copies" min="1" max="20" value="1" aria-label="Copies">
+          <button type="button" data-step="copies" data-d="1" aria-label="More copies">+</button>
+        </div>
+      </div>
+      <button class="key" id="feed" data-ico="feed" disabled>Feed</button>
+      <button class="key print" id="btn" data-ico="print" disabled>Print</button>
+    </div>
   </div>
 
-  <div class="card" data-title="Layout &amp; text">
-    <label for="layout">Layout</label>
-    <select id="layout">
-      <option value="text">Text only</option>
-      <option value="image">Image only</option>
-      <option value="both">Image + text below</option>
-      <option value="qr">QR code + text</option>
-      <option value="barcode">Barcode + text</option>
-    </select>
+  <div class="controls">
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button class="tab" role="tab" data-tab="design" data-ico="pencil">Design</button>
+      <button class="tab" role="tab" data-tab="image" data-ico="image">Image</button>
+      <button class="tab" role="tab" data-tab="output" data-ico="sliders">Output</button>
+      <button class="tab" role="tab" data-tab="templates" data-ico="stack">Saved</button>
+      <button class="tab" role="tab" data-tab="service" data-ico="wrench">Service</button>
+    </nav>
+    <div class="panelbox">
 
-    <label for="text">Text</label>
-    <textarea id="text" placeholder="Type something...">Hello from my phone</textarea>
-    <div class="row">
-      <div><label for="size">Text size</label><input type="range" id="size" min="14" max="90" value="34"></div>
+      <section class="tabpanel" id="tab-design" role="tabpanel" aria-label="Design">
+        <h2>Layout</h2>
+        <select id="layout" hidden>
+          <option value="text">Text only</option>
+          <option value="image">Image only</option>
+          <option value="both">Image + text below</option>
+          <option value="qr">QR code + text</option>
+          <option value="barcode">Barcode + text</option>
+        </select>
+        <div class="tiles" role="group" aria-label="Layout">
+          <button class="tile" data-set="layout" data-val="text" data-ico="text">Text</button>
+          <button class="tile" data-set="layout" data-val="image" data-ico="image">Image</button>
+          <button class="tile" data-set="layout" data-val="both" data-ico="both">Image + text</button>
+          <button class="tile" data-set="layout" data-val="qr" data-ico="qr">QR + text</button>
+          <button class="tile" data-set="layout" data-val="barcode" data-ico="barcode">Barcode</button>
+        </div>
+
+        <div id="textbox">
+          <label class="field" for="text">Text</label>
+          <textarea id="text" placeholder="Type something...">Hello from my phone</textarea>
+          <div class="chips ins"><span class="mini">Insert</span>
+            <button class="chip" data-ins="{date}">Date</button>
+            <button class="chip" data-ins="{time}">Time</button>
+            <button class="chip" data-ins="{n}">Number</button>
+            <button class="chip" data-ins="{n:4}">0001</button>
+          </div>
+          <div class="rangehead"><label class="field" for="size">Text size</label><output id="sizeOut"></output></div>
+          <input type="range" id="size" min="14" max="90" value="34">
+          <label class="field">Font</label>
+          <select id="font" hidden><option value="sans">Sans</option><option value="serif">Serif</option><option value="mono">Typewriter</option><option value="condensed">Condensed</option><option value="script">Script</option></select>
+          <div class="seg" role="group" aria-label="Font">
+            <button data-set="font" data-val="sans" style="font-family:system-ui,sans-serif" aria-label="Sans">Aa</button>
+            <button data-set="font" data-val="serif" style="font-family:Georgia,'Times New Roman',serif" aria-label="Serif">Aa</button>
+            <button data-set="font" data-val="mono" style="font-family:'Courier New',monospace" aria-label="Typewriter">Aa</button>
+            <button data-set="font" data-val="condensed" style="font-family:Impact,'Arial Narrow',sans-serif" aria-label="Condensed">Aa</button>
+            <button data-set="font" data-val="script" style="font-family:'Brush Script MT','Segoe Script',cursive" aria-label="Script">Aa</button>
+          </div>
+          <label class="field">Align</label>
+          <select id="align" hidden><option value="center">Center</option><option value="left">Left</option><option value="right">Right</option></select>
+          <div class="seg" role="group" aria-label="Align">
+            <button class="icon-only" data-set="align" data-val="left" data-ico="aleft" aria-label="Align left"></button>
+            <button class="icon-only" data-set="align" data-val="center" data-ico="acenter" aria-label="Align center"></button>
+            <button class="icon-only" data-set="align" data-val="right" data-ico="aright" aria-label="Align right"></button>
+          </div>
+        </div>
+
+        <div id="codebox">
+          <label class="field" for="code">QR / barcode content</label>
+          <input type="text" id="code" placeholder="Empty = use the first line of the text" autocomplete="off">
+          <div id="barbox">
+            <label class="field" for="bartype">Barcode type</label>
+            <select id="bartype"><option value="CODE128">Code 128 (any text)</option><option value="CODE39">Code 39</option><option value="EAN13">EAN-13 (12 or 13 digits)</option><option value="UPC">UPC-A (11 or 12 digits)</option></select>
+          </div>
+        </div>
+
+        <h2>Style</h2>
+        <div class="switches">
+          <label class="switch">Bold<input type="checkbox" id="bold" checked></label>
+          <label class="switch">Frame around label<input type="checkbox" id="frame"></label>
+          <label class="switch">Invert (white on black)<input type="checkbox" id="invert"></label>
+          <label class="switch">Upside down<input type="checkbox" id="flip"></label>
+        </div>
+      </section>
+
+      <section class="tabpanel" id="tab-image" role="tabpanel" aria-label="Image" hidden>
+        <div class="drop" id="drop">
+          <div class="thumb" id="thumb" data-ico="image"></div>
+          <div class="btns">
+            <label class="key small" data-ico="folder">Choose image<input type="file" id="file" accept="image/*" hidden></label>
+            <label class="key small" data-ico="camera">Take photo<input type="file" id="file2" accept="image/*" capture="environment" hidden></label>
+          </div>
+        </div>
+        <p class="hint">You can also drop an image file on the box above.</p>
+        <div class="row2" style="margin-top:14px">
+          <button class="key small" id="rotimg" data-ico="rotate">Rotate 90&deg;</button>
+          <button class="key small" id="clearimg" data-ico="trash">Clear</button>
+        </div>
+        <h2>Photo settings</h2>
+        <div class="switches">
+          <label class="switch">Dither (best for photos)<input type="checkbox" id="dither" checked></label>
+          <label class="switch">Shrink to fit printer memory<input type="checkbox" id="fit" checked></label>
+        </div>
+        <div class="rangehead"><label class="field" for="thresh">Brightness cut-off</label><output id="threshOut"></output></div>
+        <input type="range" id="thresh" min="40" max="220" value="128">
+      </section>
+
+      <section class="tabpanel" id="tab-output" role="tabpanel" aria-label="Output" hidden>
+        <h2>Darkness</h2>
+        <div class="stepper">
+          <button type="button" data-step="density" data-d="-1" aria-label="Lighter">&minus;</button>
+          <input type="number" id="density" min="0" max="15" value="6" aria-label="Darkness 0 to 15">
+          <button type="button" data-step="density" data-d="1" aria-label="Darker">+</button>
+        </div>
+        <div class="dbar" id="dbar" aria-hidden="true"></div>
+        <p class="hint">Higher is darker but pulls more power. 4 to 8 suits most labels.</p>
+        <h2>Counter</h2>
+        <div class="stepper">
+          <button type="button" data-step="cnt" data-d="-1" aria-label="Lower number">&minus;</button>
+          <input type="number" id="cnt" min="0" value="1" aria-label="Next number">
+          <button type="button" data-step="cnt" data-d="1" aria-label="Higher number">+</button>
+        </div>
+        <p class="hint">Next number for {n}. With Copies above 1, each copy gets its own number.</p>
+      </section>
+
+      <section class="tabpanel" id="tab-templates" role="tabpanel" aria-label="Saved templates" hidden>
+        <h2>Save current design</h2>
+        <div class="saverow">
+          <input type="text" id="pname" placeholder="Template name" autocomplete="off" aria-label="Template name">
+          <button class="key small" id="psave" data-ico="save">Save</button>
+        </div>
+        <h2>Your templates</h2>
+        <div class="chips" id="pchips"></div>
+        <div hidden><select id="plist"><option value="">-</option></select><button id="pload">Load</button><button id="pdel">Delete</button></div>
+        <p class="hint">Stored on this phone. Photos are not saved, only the settings.</p>
+      </section>
+
+      <section class="tabpanel" id="tab-service" role="tabpanel" aria-label="Service" hidden>
+        <div class="group">
+          <h2>Head alignment</h2>
+          <label class="field" for="dead">Dead dot column (0 = off)</label>
+          <input type="number" id="dead" min="0" max="359" value="0">
+          <button class="key small" id="cal" style="margin-top:12px" disabled>Print calibration label</button>
+          <p class="hint">Print it, find the numbered tick under the white gap, type that number above.</p>
+        </div>
+        <details class="group">
+          <summary>Label size, raw commands, firmware</summary>
+          <div class="row3">
+            <div><label class="field" for="lh">Height (dots)</label><input type="number" id="lh" min="80" max="1200" value="240"></div>
+            <div><label class="field" for="lg">Gap (dots)</label><input type="number" id="lg" min="0" max="80" value="16"></div>
+            <div><label class="field" for="spd">Speed</label><input type="number" id="spd" min="0" max="9" value="0"></div>
+          </div>
+          <p class="hint">8 dots = 1 mm. 240 + 16 = a 30 mm label with a 2 mm gap.</p>
+          <label class="field" for="raw">Raw printer commands (one per line)</label>
+          <textarea id="raw" placeholder="N&#10;A30,40,0,3,1,1,N,&quot;Hi&quot;&#10;P1"></textarea>
+          <div class="row2" style="margin-top:12px">
+            <button class="key small" id="sendraw" disabled>Send commands</button>
+            <button class="key small" id="upd" disabled>Update firmware</button>
+          </div>
+          <p class="hint" id="updinfo"></p>
+        </details>
+        <details class="group">
+          <summary>Test lab &middot; find the limits</summary>
+          <p class="hint">Prints one numbered test label per step. A complete frame with an unbroken diagonal is good. Press Good to continue or Bad to stop; the last good value is kept. Power-cycle the printer after a bad one.</p>
+          <label class="field" for="labsel">Test</label>
+          <select id="labsel">
+            <option value="pause">Pause between chunks (upload speed)</option>
+            <option value="post">Wait after upload</option>
+            <option value="gk">Wait after deleting old image</option>
+            <option value="size">Biggest image size</option>
+            <option value="speed">Print speed</option>
+          </select>
+          <button class="key small" id="labstart" style="margin-top:12px" disabled>Start test</button>
+          <div class="row2" style="margin-top:12px">
+            <button class="key small" id="labgood" disabled>Label is good</button>
+            <button class="key small" id="labbad" disabled>Bad / failed</button>
+          </div>
+          <p class="hint" id="labinfo"></p>
+          <div class="row2" style="margin-top:12px">
+            <button class="key small" id="labapply" disabled>Use best result</button>
+            <button class="key small" id="labreset">Slow safe settings</button>
+          </div>
+          <p class="hint" id="labcur"></p>
+        </details>
+      </section>
+
     </div>
-    <div class="hint">Placeholders: {date} {time} {n} (counter) {n:4} (zero-padded)</div>
-    <div class="row">
-      <div><label for="font">Font</label><select id="font"><option value="sans">Sans</option><option value="serif">Serif</option><option value="mono">Typewriter</option><option value="condensed">Condensed</option><option value="script">Script</option></select></div>
-      <div><label for="align">Align</label><select id="align"><option value="center">Center</option><option value="left">Left</option><option value="right">Right</option></select></div>
-    </div>
-    <label for="code">QR / barcode content (empty = use the text)</label>
-    <input type="text" id="code" placeholder="https://... or 123456789012" autocomplete="off">
-    <label for="bartype">Barcode type</label>
-    <select id="bartype"><option value="CODE128">Code 128 (any text)</option><option value="CODE39">Code 39</option><option value="EAN13">EAN-13 (12 or 13 digits)</option><option value="UPC">UPC-A (11 or 12 digits)</option></select>
-    <div class="chk"><input type="checkbox" id="bold" checked><label for="bold" style="margin:0">Bold</label></div>
-    <div class="chk"><input type="checkbox" id="frame"><label for="frame" style="margin:0">Frame around label</label></div>
-    <div class="chk"><input type="checkbox" id="invert"><label for="invert" style="margin:0">Invert (white on black, uses lots of power)</label></div>
-    <div class="chk"><input type="checkbox" id="flip"><label for="flip" style="margin:0">Turn upside down (180&deg;)</label></div>
   </div>
-
-  <div class="card" data-title="Image">
-    <div class="keys2">
-      <label class="file">Choose image<input type="file" id="file" accept="image/*"></label>
-      <label class="file">Take photo<input type="file" id="file2" accept="image/*" capture="environment"></label>
-    </div>
-    <div class="keys2">
-      <button class="ghost" id="rotimg">Rotate 90&deg;</button>
-      <button class="ghost" id="clearimg">Clear image</button>
-    </div>
-    <div class="chk"><input type="checkbox" id="dither" checked><label for="dither" style="margin:0">Dither (photos)</label></div>
-    <div class="chk"><input type="checkbox" id="fit" checked><label for="fit" style="margin:0">Shrink photo to fit printer memory</label></div>
-    <label for="thresh">Brightness cut-off</label>
-    <input type="range" id="thresh" min="40" max="220" value="128">
-  </div>
-
-  <div class="card" data-title="Output">
-    <div class="row">
-      <div><label for="copies">Copies</label><input type="number" id="copies" min="1" max="20" value="1"></div>
-      <div><label for="density">Darkness (0-15)</label><input type="number" id="density" min="0" max="15" value="6"></div>
-    </div>
-    <label for="cnt">Next number (for {n})</label>
-    <input type="number" id="cnt" min="0" value="1">
-    <div class="hint">With {n} in the text and Copies above 1, each copy gets the next number.</div>
-  </div>
-
-  <div class="card" data-title="Templates">
-    <label for="pname">Name</label>
-    <input type="text" id="pname" placeholder="e.g. shelf label" autocomplete="off">
-    <button class="ghost" id="psave">Save current as template</button>
-    <label for="plist">Saved templates</label>
-    <select id="plist"><option value="">- none yet -</option></select>
-    <div class="keys2">
-      <button class="ghost" id="pload">Load</button>
-      <button class="ghost" id="pdel">Delete</button>
-    </div>
-    <div class="hint">Saved on this phone only. Photos are not saved, only the settings.</div>
-  </div>
-
-  <div class="card" data-title="Head alignment">
-    <label for="dead">Dead dot column (0 = off)</label>
-    <input type="number" id="dead" min="0" max="359" value="0">
-    <button class="ghost" id="cal" disabled>Print calibration label</button>
-    <div class="meta" style="text-align:left">Print it, find the numbered tick under the white gap, type that number above.</div>
-  </div>
-
-  <details class="card">
-    <summary>Service &middot; advanced</summary>
-    <div class="row">
-      <div><label for="lh">Label height (dots)</label><input type="number" id="lh" min="80" max="1200" value="240"></div>
-      <div><label for="lg">Gap (dots)</label><input type="number" id="lg" min="0" max="80" value="16"></div>
-      <div><label for="spd">Speed (0 slow)</label><input type="number" id="spd" min="0" max="9" value="0"></div>
-    </div>
-    <div class="meta" style="text-align:left">8 dots = 1 mm. 240 + 16 = 30 mm label with a 2 mm gap.</div>
-    <label for="raw">Raw printer commands (one per line)</label>
-    <textarea id="raw" placeholder="N&#10;A30,40,0,3,1,1,N,&quot;Hi&quot;&#10;P1"></textarea>
-    <button class="ghost" id="sendraw" disabled>Send raw commands</button>
-    <button class="ghost" id="upd" disabled>Update firmware wirelessly</button>
-    <div class="meta" id="updinfo" style="text-align:left"></div>
-  </details>
-
-  <details class="card">
-    <summary>Test lab &middot; find the limits</summary>
-    <div class="meta" style="text-align:left">Prints one numbered test label per step. Look at it: a frame with an unbroken diagonal and sharp text is good. Press Good to go to the next step, or Bad (garbled, blank, printer hung or reset) to stop. The last good value is kept. Power-cycle the printer after a bad one.</div>
-    <label for="labsel">Test</label>
-    <select id="labsel">
-      <option value="pause">Pause between chunks (upload speed)</option>
-      <option value="post">Wait after upload</option>
-      <option value="gk">Wait after deleting old image</option>
-      <option value="size">Biggest image size</option>
-      <option value="speed">Print speed</option>
-    </select>
-    <button class="ghost" id="labstart" disabled>Start test</button>
-    <div class="row">
-      <button class="ghost" id="labgood" disabled>Label is good</button>
-      <button class="ghost" id="labbad" disabled>Bad / failed</button>
-    </div>
-    <div class="meta" id="labinfo" style="text-align:left"></div>
-    <button class="ghost" id="labapply" disabled>Use best result</button>
-    <button class="ghost" id="labreset">Reset to slow safe settings</button>
-    <div class="meta" id="labcur" style="text-align:left"></div>
-  </details>
-
-  <button id="connect" class="ghost" style="margin:0 0 8px">Connect to printer</button>
-  <button id="btn" disabled>Print</button>
-  <button class="ghost" id="feed" disabled>Feed one label</button>
-  <div class="lcd" id="status"></div>
-</main>
+</div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js" integrity="sha384-mZT2gIty7ZDdOGkxfP6joZcYdMW1Jvj9dRlfpTmaJAKKXTqzygtB22k7FLe+KZC1" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js" integrity="sha384-Kk5SjBOKprEnGfyBWfD2zROFd1Cu8kwOXxG2GIhYPcoDL2rBJS9P8Ud1ZMy4412a" crossorigin="anonymous"></script>
@@ -727,12 +895,125 @@ $('pdel').onclick = () => {
 };
 refreshPresets();
 
+// ------------------------------------------------------------------ UI layer: icons, tabs, tiles, steppers
+const PIX = {
+  text: ['##########', '##########', '....##....', '....##....', '....##....', '....##....', '....##....', '....##....', '....##....'],
+  image: ['##########', '#........#', '#.....##.#', '#.....##.#', '#..#.....#', '#.###..#.#', '##########'],
+  both: ['##########', '#........#', '#..#..##.#', '#.###.##.#', '##########', '..........', '##########', '..........', '#######...'],
+  qr: ['###..#.###', '#.#.##.#.#', '###.#..###', '...#.#....', '#.##.##.#.', '.#..#..##.', '....#.#.#.', '###..###.#', '#.#.#..#..', '###.##.###'],
+  barcode: ['#.##.#.#.#', '#.##.#.#.#', '#.##.#.#.#', '#.##.#.#.#', '#.##.#.#.#', '#.##.#.#.#', '#.##.#.#.#', '#.##.#.#.#'],
+  camera: ['...###....', '##########', '#...##...#', '#..#..#..#', '#..#..#..#', '#...##...#', '##########'],
+  folder: ['####......', '#..#######', '#........#', '#........#', '#........#', '#........#', '##########'],
+  rotate: ['...####...', '.##....#.#', '#.......##', '#.....####', '#.........', '#........#', '#........#', '.#......#.', '..##..##..', '....##....'],
+  trash: ['..####..', '########', '.#....#.', '.#.##.#.', '.#.##.#.', '.#.##.#.', '.#.##.#.', '.#....#.', '.######.'],
+  print: ['..######..', '..#....#..', '##########', '#........#', '#......#.#', '#........#', '##########', '..#....#..', '..#.##.#..', '..######..'],
+  feed: ['########', '#......#', '#..##..#', '#..##..#', '#..##..#', '#.####.#', '#..##..#', '#......#', '#.#.#.#.'],
+  bt: ['...#...', '...##..', '.#.#.#.', '..###..', '...#...', '..###..', '.#.#.#.', '...##..', '...#...'],
+  save: ['#########.', '#.#####.##', '#.#####..#', '#........#', '#........#', '#.######.#', '#.#....#.#', '#.#....#.#', '##########'],
+  pencil: ['........##', '.......###', '......###.', '.....###..', '....###...', '...###....', '..###.....', '.###......', '##........', '#.........'],
+  sliders: ['..##......', '##########', '..##......', '..........', '......##..', '##########', '......##..', '..........', '...##.....', '##########', '...##.....'],
+  wrench: ['.....##..#', '....###.##', '....######', '...#####..', '..###.....', '.###......', '###.......', '##........'],
+  stack: ['..######..', '.#......#.', '##########', '#........#', '#..####..#', '#........#', '#..###...#', '#........#', '##########'],
+  aleft: ['##########', '..........', '######....', '..........', '##########', '..........', '#######...'],
+  acenter: ['##########', '..........', '..######..', '..........', '##########', '..........', '..######..'],
+  aright: ['##########', '..........', '....######', '..........', '##########', '..........', '...#######']
+};
+function pixURI(rows) {
+  const w = Math.max(...rows.map(r => r.length)), h = rows.length;
+  let d = '';
+  rows.forEach((r, y) => {
+    for (let x = 0; x < r.length;) {
+      if (r[x] !== '#') { x++; continue; }
+      let e = x; while (e < r.length && r[e] === '#') e++;
+      d += 'M' + x + ' ' + y + 'h' + (e - x) + 'v1h-' + (e - x) + 'z'; x = e;
+    }
+  });
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + w + ' ' + h + '" shape-rendering="crispEdges"><path d="' + d + '"/></svg>';
+  return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '")';
+}
+document.querySelectorAll('[data-ico]').forEach(el => { const p = PIX[el.dataset.ico]; if (p) el.style.setProperty('--ico', pixURI(p)); });
+document.querySelectorAll('button:not([type])').forEach(b => { b.type = 'button'; });
+
+// tabs (remembered on this phone)
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => { const on = t.dataset.tab === name; t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1; });
+  document.querySelectorAll('.tabpanel').forEach(p => { p.hidden = p.id !== 'tab-' + name; });
+  try { localStorage.setItem('lp50tab', name); } catch (e) {}
+}
+document.querySelectorAll('.tab').forEach(t => { t.onclick = () => showTab(t.dataset.tab); });
+let startTab = 'design';
+try { startTab = localStorage.getItem('lp50tab') || 'design'; } catch (e) {}
+showTab(document.getElementById('tab-' + startTab) ? startTab : 'design');
+
+// tiles and segmented buttons drive the hidden selects
+document.querySelectorAll('[data-set]').forEach(b => { b.onclick = () => { const el = $(b.dataset.set); el.value = b.dataset.val; el.dispatchEvent(new Event('input')); }; });
+// +/- steppers
+document.querySelectorAll('[data-step]').forEach(b => {
+  b.onclick = () => {
+    const el = $(b.dataset.step), min = el.min === '' ? -Infinity : +el.min, max = el.max === '' ? Infinity : +el.max;
+    el.value = Math.min(max, Math.max(min, (+el.value || 0) + +b.dataset.d));
+    el.dispatchEvent(new Event('input'));
+  };
+});
+// one-tap placeholders
+document.querySelectorAll('[data-ins]').forEach(b => {
+  b.onclick = () => {
+    const t = $('text'), ins = b.dataset.ins, a0 = t.selectionStart ?? t.value.length, e0 = t.selectionEnd ?? a0;
+    t.value = t.value.slice(0, a0) + ins + t.value.slice(e0);
+    t.focus(); t.selectionStart = t.selectionEnd = a0 + ins.length;
+    t.dispatchEvent(new Event('input'));
+  };
+});
+// drag and drop an image file
+const drop = $('drop');
+['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => { if (e.dataTransfer && e.dataTransfer.files.length) onPickImage({ target: { files: e.dataTransfer.files } }); });
+
+for (let k = 0; k < 16; k++) $('dbar').appendChild(document.createElement('i'));
+function syncUI() {
+  document.querySelectorAll('[data-set]').forEach(b => b.setAttribute('aria-pressed', String($(b.dataset.set).value === b.dataset.val)));
+  const lay = $('layout').value;
+  $('textbox').hidden = lay === 'image';
+  $('codebox').hidden = !(lay === 'qr' || lay === 'barcode');
+  $('barbox').hidden = lay !== 'barcode';
+  $('sizeOut').textContent = $('size').value + ' px';
+  $('threshOut').textContent = $('thresh').value;
+  const dk = +$('density').value || 0;
+  [...$('dbar').children].forEach((i, k) => { i.className = k <= dk ? (k >= 11 ? 'on hot' : 'on') : ''; });
+  const th = $('thumb');
+  if (img) { th.style.backgroundImage = 'url("' + img.src + '")'; th.style.transform = 'rotate(' + imrot + 'deg)'; th.classList.add('has'); }
+  else { th.style.backgroundImage = ''; th.style.transform = ''; th.classList.remove('has'); }
+}
+$('density').addEventListener('input', syncUI);
+const _render = render;
+render = function (...args) { const r = _render(...args); syncUI(); return r; };
+
+// templates as chips
+function buildChips() {
+  const box = $('pchips'); box.textContent = '';
+  const names = Object.keys(getPresets()).sort();
+  if (!names.length) { const p = document.createElement('p'); p.className = 'hint'; p.style.margin = '0'; p.textContent = 'No templates yet. Design a label, name it and press Save.'; box.appendChild(p); return; }
+  for (const n of names) {
+    const w = document.createElement('span'); w.className = 'tpl';
+    const a = document.createElement('button'); a.type = 'button'; a.className = 'chip'; a.textContent = n;
+    a.onclick = () => { $('plist').value = n; $('pload').click(); showTab('design'); };
+    const x = document.createElement('button'); x.type = 'button'; x.className = 'chip x'; x.textContent = '\u00d7'; x.setAttribute('aria-label', 'Delete ' + n);
+    x.onclick = () => { if (confirm('Delete template "' + n + '"?')) { $('plist').value = n; $('pdel').click(); } };
+    w.append(a, x); box.appendChild(w);
+  }
+}
+const _refreshPresets = refreshPresets;
+refreshPresets = function (sel) { _refreshPresets(sel); buildChips(); };
+buildChips();
+
 // panel LEDs follow the LCD text
 if (typeof MutationObserver !== 'undefined') {
   const leds = () => {
     const c = $('conn').textContent, st = $('status').textContent;
     $('led-power').classList.toggle('on', /^Connected/i.test(c));
     $('led-busy').classList.toggle('on', /Sending|Printing|Retrying|Feeding/i.test(st));
+    document.body.classList.toggle('busy', /Sending|Printing|Retrying|Feeding|Label \d/i.test(st));
     $('led-error').classList.toggle('on', /Error|failed|Flash firmware|Disconnected/i.test(st));
   };
   for (const id of ['conn', 'status']) new MutationObserver(leds).observe($(id), { childList: true, characterData: true, subtree: true });
