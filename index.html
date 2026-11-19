@@ -4,46 +4,108 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>LP-50 Printer</title>
 <style>
+  :root{--case:#cdc8b8;--case-hi:#ddd9cb;--case-lo:#a9a48f;--edge:#5d5a4d;--ink:#2b2a26;--label:#4a4739;--lcd:#a3b18a;--lcd-ink:#27331f;--key:#bdb8a6;--accent:#c0562b}
   *{box-sizing:border-box}
-  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f4f4f2;color:#1d1d1b}
-  header{padding:16px 18px 8px}
-  h1{font-size:20px;margin:0}
-  .sub{font-size:13px;color:#777;margin-top:2px}
-  main{padding:8px 14px 40px;max-width:520px;margin:0 auto}
-  .card{background:#fff;border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
-  .pvwrap{background:#e9e8e4;border-radius:10px;padding:10px;display:flex;justify-content:center}
-  canvas#pv{width:100%;max-width:360px;image-rendering:pixelated;background:#fff;border-radius:6px;box-shadow:0 0 0 1px #d0cfca}
-  .meta{font-size:12px;color:#888;text-align:right;margin-top:6px}
-  label{display:block;font-size:13px;color:#555;margin:10px 0 4px}
-  textarea,select,input[type=number]{width:100%;font:inherit;font-size:16px;padding:10px;border:1px solid #d6d5d0;border-radius:10px;background:#fff}
+  body{margin:0;min-height:100vh;font-family:"Courier New",ui-monospace,Menlo,Consolas,monospace;color:var(--ink);
+    background:#86826f radial-gradient(ellipse at 50% -10%,#a29d8b,#7b7767 75%)}
+  header,main{max-width:520px;margin:0 auto}
+  header{padding:16px 12px 8px}
+  main{padding:6px 12px 48px}
+
+  /* nameplate + status LEDs */
+  .plate{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;border-radius:10px 10px 4px 4px;
+    background:linear-gradient(var(--case-hi),var(--case));box-shadow:inset 0 1px 0 #fff8,inset 0 -3px 0 var(--case-lo),0 3px 0 var(--edge),0 6px 10px #0004}
+  h1{margin:0;font:900 26px/1 "Arial Black","Helvetica Neue",Arial,sans-serif;letter-spacing:2px;color:#3a3830;text-shadow:0 1px 0 #fff9}
+  .model{margin-top:5px;font:700 9px Arial,sans-serif;letter-spacing:1.6px;color:#5e5a4a}
+  .leds{display:flex;gap:12px}
+  .ledbox{display:flex;flex-direction:column;align-items:center;gap:5px;font:700 8px Arial,sans-serif;letter-spacing:1px;color:var(--label)}
+  .led{display:block;width:12px;height:12px;border-radius:50%;background:#4a4a42;box-shadow:inset 0 1px 2px #000a,0 1px 0 #fff7;transition:background .15s,box-shadow .15s}
+  .led.g.on{background:#5bff6a;box-shadow:0 0 9px #5bff6a,inset 0 0 3px #fff9}
+  .led.a.on{background:#ffb02e;box-shadow:0 0 9px #ffb02e,inset 0 0 3px #fff9;animation:blink .5s steps(2) infinite}
+  .led.r.on{background:#ff4a3a;box-shadow:0 0 9px #ff4a3a,inset 0 0 3px #fff9}
+  @keyframes blink{50%{opacity:.35}}
+
+  /* LCD window */
+  .lcd{min-height:32px;padding:8px 10px;border-radius:4px;background:var(--lcd) repeating-linear-gradient(0deg,#0000 0 2px,#0000000d 2px 3px);color:var(--lcd-ink);
+    font:700 13px/1.35 "Courier New",monospace;letter-spacing:.5px;text-transform:uppercase;box-shadow:inset 0 2px 6px #0007,0 1px 0 #fff7}
+  header .lcd{margin-top:10px}
+  #status{margin-top:16px}
+
+  /* panels */
+  .card{position:relative;margin-bottom:14px;padding:32px 14px 14px;border-radius:8px;
+    background:linear-gradient(var(--case-hi),var(--case));box-shadow:inset 0 1px 0 #fff8,inset 0 -3px 0 var(--case-lo),0 3px 0 var(--edge),0 6px 10px #0004}
+  .card::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:8px;background-repeat:no-repeat;
+    background-image:radial-gradient(circle at 9px 9px,#8c8774 0 2.5px,#0000 3px),radial-gradient(circle at calc(100% - 9px) 9px,#8c8774 0 2.5px,#0000 3px),
+      radial-gradient(circle at 9px calc(100% - 9px),#8c8774 0 2.5px,#0000 3px),radial-gradient(circle at calc(100% - 9px) calc(100% - 9px),#8c8774 0 2.5px,#0000 3px)}
+  .card[data-title]::before{content:attr(data-title);position:absolute;top:11px;left:24px;font:700 10px Arial,sans-serif;letter-spacing:2.5px;text-transform:uppercase;color:var(--label);text-shadow:0 1px 0 #fff9}
+  details.card{padding:0}
+  summary{list-style:none;cursor:pointer;padding:12px 24px;font:700 10px Arial,sans-serif;letter-spacing:2.5px;text-transform:uppercase;color:var(--label);text-shadow:0 1px 0 #fff9}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"\25B8  "}
+  details[open]>summary::before{content:"\25BE  "}
+  details.card>*:not(summary){margin-left:16px;margin-right:16px}
+  details.card>*:last-child{margin-bottom:16px}
+
+  /* label in the paper path */
+  .pvwrap{display:flex;justify-content:center;padding:14px;border-radius:6px;background:#3a3832;box-shadow:inset 0 4px 10px #000b,0 1px 0 #fff7}
+  canvas#pv{width:100%;max-width:360px;image-rendering:pixelated;background:#fbf9ef;border-radius:3px;box-shadow:0 0 0 1px #0003,0 5px 9px #000a}
+  .meta{margin-top:7px;font:700 11px "Courier New",monospace;color:#5e5a4a;text-align:right}
+  .warn{color:#9a2f00}
+
+  /* controls */
+  label{display:block;margin:12px 0 5px;font:700 10px Arial,sans-serif;letter-spacing:1.5px;text-transform:uppercase;color:var(--label)}
+  textarea,select,input[type=number],input[type=text]{width:100%;font-weight:600;padding:9px 10px;border:0;border-radius:4px;background:#f1edda;color:var(--ink);font:inherit;font-size:15px;box-shadow:inset 0 2px 4px #0005,0 1px 0 #fff8}
   textarea{min-height:72px;resize:vertical}
+  textarea:focus,select:focus,input:focus,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  input[type=range],input[type=checkbox]{accent-color:var(--accent)}
   input[type=range]{width:100%}
   .row{display:flex;gap:10px}.row>*{flex:1}
-  .chk{display:flex;align-items:center;gap:8px;font-size:15px;margin:8px 0}
-  .chk input{width:20px;height:20px}
-  .file{display:block;padding:12px;border:1.5px dashed #c9c8c2;border-radius:10px;text-align:center;color:#555;font-size:15px}
+  .chk{display:flex;align-items:center;gap:8px;margin:9px 0}
+  .chk input{width:20px;height:20px;flex:none}
+  .chk label{margin:0;font:600 13px "Courier New",monospace;letter-spacing:0;text-transform:none;color:var(--ink)}
+  .file{margin:0;padding:13px;border:2px dashed #8f8a76;border-radius:4px;background:#d7d2c1;text-align:center;font:700 12px Arial,sans-serif;letter-spacing:1.5px;color:var(--label);cursor:pointer}
   .file input{display:none}
-  button{width:100%;font:inherit;font-size:17px;font-weight:600;padding:14px;border:0;border-radius:12px;cursor:pointer}
-  #btn{background:#1d1d1b;color:#fff}
-  #btn:disabled{opacity:.5}
-  .ghost{background:#e9e8e4;color:#1d1d1b;font-weight:500;font-size:15px;padding:11px;margin-top:8px}
-  #status{text-align:center;font-size:14px;color:#555;min-height:20px;margin-top:10px}
-  .warn{color:#b35400}
+  .keys2{display:flex;gap:10px}.keys2>*{flex:1}
+  .keys2 .ghost{margin-top:12px}
+  .hint{margin-top:8px;font:700 11px "Courier New",monospace;color:#5e5a4a;text-align:left}
+
+  /* keys */
+  button{width:100%;padding:13px;border:0;border-radius:6px;cursor:pointer;font:700 13px Arial,sans-serif;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink);
+    background:linear-gradient(#e6e2d3,var(--key));box-shadow:inset 0 1px 0 #fffa,0 4px 0 #7d7966,0 6px 6px #0004;transition:transform .05s,box-shadow .05s}
+  button:active:not(:disabled){transform:translateY(3px);box-shadow:inset 0 1px 0 #fff6,0 1px 0 #7d7966,0 2px 3px #0004}
+  button:disabled{opacity:.5;cursor:not-allowed;box-shadow:0 1px 0 #7d7966;transform:none}
+  .ghost{margin-top:12px}
+  #connect{margin:6px 0 14px!important}
+  #btn{margin-top:4px;padding:17px;font-size:17px;letter-spacing:3px;color:#ffd27a;background:linear-gradient(#4a4840,#2c2b26);box-shadow:inset 0 1px 0 #fff3,0 4px 0 #15140f,0 6px 7px #0006}
+  #btn:active:not(:disabled){box-shadow:inset 0 1px 0 #fff2,0 1px 0 #15140f,0 2px 3px #0006}
+  #feed{margin-top:16px}
 </style>
 </head><body>
-<header><h1>LP-50 Printer</h1><div class="sub" id="conn">Not connected</div></header>
+<header>
+  <div class="plate">
+    <div><h1>LP-50</h1><div class="model">THERMAL LABEL PRINTER &middot; 50 &times; 30 MM</div></div>
+    <div class="leds">
+      <div class="ledbox"><i class="led g" id="led-power"></i>POWER</div>
+      <div class="ledbox"><i class="led a" id="led-busy"></i>BUSY</div>
+      <div class="ledbox"><i class="led r" id="led-error"></i>ERROR</div>
+    </div>
+  </div>
+  <div class="lcd" id="conn">Not connected</div>
+</header>
 <main>
-  <div class="card">
+  <div class="card" data-title="Label preview">
     <div class="pvwrap"><canvas id="pv" width="360" height="200"></canvas></div>
     <div class="meta" id="cover"></div>
   </div>
 
-  <div class="card">
+  <div class="card" data-title="Layout &amp; text">
     <label for="layout">Layout</label>
     <select id="layout">
       <option value="text">Text only</option>
       <option value="image">Image only</option>
       <option value="both">Image + text below</option>
+      <option value="qr">QR code + text</option>
+      <option value="barcode">Barcode + text</option>
     </select>
 
     <label for="text">Text</label>
@@ -51,26 +113,60 @@
     <div class="row">
       <div><label for="size">Text size</label><input type="range" id="size" min="14" max="90" value="34"></div>
     </div>
+    <div class="hint">Placeholders: {date} {time} {n} (counter) {n:4} (zero-padded)</div>
+    <div class="row">
+      <div><label for="font">Font</label><select id="font"><option value="sans">Sans</option><option value="serif">Serif</option><option value="mono">Typewriter</option><option value="condensed">Condensed</option><option value="script">Script</option></select></div>
+      <div><label for="align">Align</label><select id="align"><option value="center">Center</option><option value="left">Left</option><option value="right">Right</option></select></div>
+    </div>
+    <label for="code">QR / barcode content (empty = use the text)</label>
+    <input type="text" id="code" placeholder="https://... or 123456789012" autocomplete="off">
+    <label for="bartype">Barcode type</label>
+    <select id="bartype"><option value="CODE128">Code 128 (any text)</option><option value="CODE39">Code 39</option><option value="EAN13">EAN-13 (12 or 13 digits)</option><option value="UPC">UPC-A (11 or 12 digits)</option></select>
     <div class="chk"><input type="checkbox" id="bold" checked><label for="bold" style="margin:0">Bold</label></div>
     <div class="chk"><input type="checkbox" id="frame"><label for="frame" style="margin:0">Frame around label</label></div>
+    <div class="chk"><input type="checkbox" id="invert"><label for="invert" style="margin:0">Invert (white on black, uses lots of power)</label></div>
+    <div class="chk"><input type="checkbox" id="flip"><label for="flip" style="margin:0">Turn upside down (180&deg;)</label></div>
   </div>
 
-  <div class="card">
-    <label class="file">Choose image<input type="file" id="file" accept="image/*"></label>
+  <div class="card" data-title="Image">
+    <div class="keys2">
+      <label class="file">Choose image<input type="file" id="file" accept="image/*"></label>
+      <label class="file">Take photo<input type="file" id="file2" accept="image/*" capture="environment"></label>
+    </div>
+    <div class="keys2">
+      <button class="ghost" id="rotimg">Rotate 90&deg;</button>
+      <button class="ghost" id="clearimg">Clear image</button>
+    </div>
     <div class="chk"><input type="checkbox" id="dither" checked><label for="dither" style="margin:0">Dither (photos)</label></div>
     <div class="chk"><input type="checkbox" id="fit" checked><label for="fit" style="margin:0">Shrink photo to fit printer memory</label></div>
     <label for="thresh">Brightness cut-off</label>
     <input type="range" id="thresh" min="40" max="220" value="128">
   </div>
 
-  <div class="card">
+  <div class="card" data-title="Output">
     <div class="row">
       <div><label for="copies">Copies</label><input type="number" id="copies" min="1" max="20" value="1"></div>
       <div><label for="density">Darkness (0-15)</label><input type="number" id="density" min="0" max="15" value="6"></div>
     </div>
+    <label for="cnt">Next number (for {n})</label>
+    <input type="number" id="cnt" min="0" value="1">
+    <div class="hint">With {n} in the text and Copies above 1, each copy gets the next number.</div>
   </div>
 
-  <div class="card">
+  <div class="card" data-title="Templates">
+    <label for="pname">Name</label>
+    <input type="text" id="pname" placeholder="e.g. shelf label" autocomplete="off">
+    <button class="ghost" id="psave">Save current as template</button>
+    <label for="plist">Saved templates</label>
+    <select id="plist"><option value="">- none yet -</option></select>
+    <div class="keys2">
+      <button class="ghost" id="pload">Load</button>
+      <button class="ghost" id="pdel">Delete</button>
+    </div>
+    <div class="hint">Saved on this phone only. Photos are not saved, only the settings.</div>
+  </div>
+
+  <div class="card" data-title="Head alignment">
     <label for="dead">Dead dot column (0 = off)</label>
     <input type="number" id="dead" min="0" max="359" value="0">
     <button class="ghost" id="cal" disabled>Print calibration label</button>
@@ -78,7 +174,7 @@
   </div>
 
   <details class="card">
-    <summary style="font-size:15px;cursor:pointer">Advanced</summary>
+    <summary>Service &middot; advanced</summary>
     <div class="row">
       <div><label for="lh">Label height (dots)</label><input type="number" id="lh" min="80" max="1200" value="240"></div>
       <div><label for="lg">Gap (dots)</label><input type="number" id="lg" min="0" max="80" value="16"></div>
@@ -93,7 +189,7 @@
   </details>
 
   <details class="card">
-    <summary style="font-size:15px;cursor:pointer">Test lab (find the printer's limits)</summary>
+    <summary>Test lab &middot; find the limits</summary>
     <div class="meta" style="text-align:left">Prints one numbered test label per step. Look at it: a frame with an unbroken diagonal and sharp text is good. Press Good to go to the next step, or Bad (garbled, blank, printer hung or reset) to stop. The last good value is kept. Power-cycle the printer after a bad one.</div>
     <label for="labsel">Test</label>
     <select id="labsel">
@@ -117,15 +213,17 @@
   <button id="connect" class="ghost" style="margin:0 0 8px">Connect to printer</button>
   <button id="btn" disabled>Print</button>
   <button class="ghost" id="feed" disabled>Feed one label</button>
-  <div id="status"></div>
+  <div class="lcd" id="status"></div>
 </main>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js" integrity="sha384-mZT2gIty7ZDdOGkxfP6joZcYdMW1Jvj9dRlfpTmaJAKKXTqzygtB22k7FLe+KZC1" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js" integrity="sha384-Kk5SjBOKprEnGfyBWfD2zROFd1Cu8kwOXxG2GIhYPcoDL2rBJS9P8Ud1ZMy4412a" crossorigin="anonymous"></script>
 <script>
 const W = 360, H = 200;
 let img = null;
 const $ = id => document.getElementById(id);
 
-$('file').onchange = e => {
+function onPickImage(e) {
   const f = e.target.files[0];
   if (!f) return;
   const im = new Image();
@@ -135,8 +233,22 @@ $('file').onchange = e => {
     render();
   };
   im.src = URL.createObjectURL(f);
-};
-['layout', 'text', 'size', 'bold', 'frame', 'dither', 'fit', 'dead', 'thresh'].forEach(id => $(id).addEventListener('input', () => render()));
+}
+$('file').onchange = onPickImage;
+$('file2').onchange = onPickImage;
+let imrot = 0;                                   // image rotation in degrees
+function imgSrc() {
+  if (!img) return null;
+  if (!imrot) return img;
+  const odd = imrot % 180 !== 0, c = document.createElement('canvas');
+  c.width = odd ? img.height : img.width; c.height = odd ? img.width : img.height;
+  const g = c.getContext('2d');
+  g.translate(c.width / 2, c.height / 2); g.rotate(imrot * Math.PI / 180); g.drawImage(img, -img.width / 2, -img.height / 2);
+  return c;
+}
+$('rotimg').onclick = () => { imrot = (imrot + 90) % 360; render(); };
+$('clearimg').onclick = () => { img = null; imrot = 0; $('file').value = ''; $('file2').value = ''; render(); };
+['layout', 'text', 'size', 'bold', 'frame', 'dither', 'fit', 'dead', 'thresh', 'font', 'align', 'invert', 'flip', 'code', 'bartype', 'cnt'].forEach(id => $(id).addEventListener('input', () => render()));
 
 function layer() {
   const c = document.createElement('canvas');
@@ -167,34 +279,117 @@ function dither(g, bits, t) {          // Floyd-Steinberg
   }
 }
 
+
+// ---- text helpers: placeholders, wrapping, fitting
+const FONTS = { sans: 'system-ui, sans-serif', serif: 'Georgia, "Times New Roman", serif', mono: '"Courier New", monospace', condensed: 'Impact, "Arial Narrow", sans-serif', script: '"Brush Script MT", "Segoe Script", cursive' };
+const pad2 = n => String(n).padStart(2, '0');
+let curOffset = 0;                                // which copy of a numbered batch is being drawn
+function expand(t) {
+  const d = new Date();
+  return t.replace(/\{date\}/g, pad2(d.getDate()) + '.' + pad2(d.getMonth() + 1) + '.' + d.getFullYear())
+          .replace(/\{time\}/g, pad2(d.getHours()) + ':' + pad2(d.getMinutes()))
+          .replace(/\{n(?::(\d+))?\}/g, (m, w) => String((+$('cnt').value || 0) + curOffset).padStart(+w || 0, '0'));
+}
+function wrapLines(ctx, text, maxW) {             // keeps manual line breaks, wraps the rest by words
+  const out = [];
+  for (const para of text.split('\n')) {
+    let cur = '';
+    for (const w of para.split(' ')) {
+      const t = cur ? cur + ' ' + w : w;
+      if (!cur || ctx.measureText(t).width <= maxW) cur = t; else { out.push(cur); cur = w; }
+    }
+    out.push(cur);
+  }
+  return out;
+}
+function textBox(ctx, text, bx, by, bw, bh, size, bold, fam, align, autofit) {
+  let sz = size, lines, lh;
+  for (;;) {
+    ctx.font = (bold ? 'bold ' : '') + sz + 'px ' + fam;
+    lines = wrapLines(ctx, text, bw); lh = sz * 1.15;
+    if (!autofit || lines.length * lh <= bh || sz <= 12) break;
+    sz -= 2;
+  }
+  ctx.textAlign = align; ctx.textBaseline = 'top';
+  const x = align === 'left' ? bx : align === 'right' ? bx + bw : bx + bw / 2;
+  let y = by + Math.max(0, (bh - lines.length * lh) / 2);
+  for (const l of lines) { ctx.fillText(l, x, y); y += lh; }
+}
+function makeQR(data, maxSize) {                // size it first so it can be centred
+  const q = qrcode(0, 'M'); q.addData(data); q.make();
+  const n = q.getModuleCount(), m = Math.max(1, Math.floor(maxSize / n));
+  return { q, n, m, size: m * n };
+}
+function drawQR(ctx, o, x, y) {                  // crisp square modules, no smoothing
+  for (let r = 0; r < o.n; r++) for (let c = 0; c < o.n; c++) if (o.q.isDark(r, c)) ctx.fillRect(x + c * o.m, y + r * o.m, o.m, o.m);
+}
+function barcodeCanvas(data, fmt, maxW, h) {
+  const c = document.createElement('canvas');
+  JsBarcode(c, data, { format: fmt, width: 1, height: h, displayValue: false, margin: 0 });
+  const m = Math.max(1, Math.min(4, Math.floor(maxW / c.width)));
+  if (m > 1) JsBarcode(c, data, { format: fmt, width: m, height: h, displayValue: false, margin: 0 });
+  return c;
+}
+
 let BUDGET = 8000;   // auto-test photos up to 8.2 KB printed fine; "Reset to slow safe settings" goes back to 4800
 try { const b = +localStorage.getItem('lp50budget'); if (b > 1000) BUDGET = b; } catch (e) {}
 
 function render(fit = 1) {
   const layout = $('layout').value;
   const size = +$('size').value;
-  const lines = $('text').value.split('\n');
-  const hasText = layout !== 'image' && $('text').value.trim().length > 0;
-  const hasImg = layout !== 'text' && img;
+  const fam = FONTS[$('font').value] || FONTS.sans, align = $('align').value, bold = $('bold').checked;
+  const txt = expand($('text').value);
+  const codeData = expand($('code').value).trim() || txt.split('\n')[0].trim();
+  const M = $('frame').checked ? 16 : 8;
+  const src = imgSrc();
+  const hasText = layout !== 'image' && txt.trim().length > 0;
+  const hasImg = (layout === 'image' || layout === 'both') && !!src;
+  const lines = txt.split('\n');
   const lineH = size * 1.15;
   const textH = hasText ? lines.length * lineH : 0;
+  let note = '';
 
   const a = layer();                    // image layer (dithered)
   if (hasImg) {
     const boxH = Math.max(20, layout === 'both' && hasText ? H - textH - 6 : H);
-    const s = Math.min(W / img.width, boxH / img.height) * fit;
-    const w = img.width * s, h = img.height * s;
-    a.drawImage(img, (W - w) / 2, (boxH - h) / 2, w, h);
+    const s = Math.min(W / src.width, boxH / src.height) * fit;
+    const w = src.width * s, h = src.height * s;
+    a.drawImage(src, (W - w) / 2, (boxH - h) / 2, w, h);
   }
 
-  const b = layer();                    // text + frame layer (sharp)
+  const b = layer();                    // text, codes and frame layer (sharp)
   b.fillStyle = '#000';
-  if (hasText) {
-    b.font = ($('bold').checked ? 'bold ' : '') + size + 'px system-ui, sans-serif';
-    b.textAlign = 'center';
+  if (layout === 'qr') {
+    if (!codeData) note = 'Type something to encode';
+    else if (typeof qrcode !== 'function') note = 'QR library not loaded (offline?)';
+    else {
+      try {
+        const o = makeQR(codeData, H - 2 * M - 4);
+        drawQR(b, o, M + 2, Math.round((H - o.size) / 2));
+        if (hasText) textBox(b, txt, M + 2 + o.size + 14, M, W - (M + 2 + o.size + 14) - M, H - 2 * M, size, bold, fam, align === 'center' ? 'left' : align, true);
+      } catch (e) { note = 'Too much data for a QR code'; }
+    }
+  } else if (layout === 'barcode') {
+    if (!codeData) note = 'Type something to encode';
+    else if (typeof JsBarcode !== 'function') note = 'Barcode library not loaded (offline?)';
+    else {
+      try {
+        const bh = hasText ? 96 : 150;
+        const bc = barcodeCanvas(codeData, $('bartype').value, W - 2 * M - 8, bh);
+        const bw = Math.min(bc.width, W - 2 * M), bhh = bc.width > bw ? bc.height * bw / bc.width : bc.height;
+        if (bc.width > bw) note = 'Data is long: bars were squeezed, scan it before using';
+        const by = hasText ? M + 4 : Math.round((H - bhh) / 2);
+        b.drawImage(bc, Math.round((W - bw) / 2), by, bw, bhh);
+        if (hasText) { const ty = by + bhh + 8; textBox(b, txt, M, ty, W - 2 * M, H - ty - M, size, bold, fam, align, true); }
+      } catch (e) { note = 'This barcode type cannot encode that text'; }
+    }
+  } else if (hasText) {
+    b.font = (bold ? 'bold ' : '') + size + 'px ' + fam;
+    b.textAlign = align;
     b.textBaseline = 'top';
+    const x = align === 'left' ? M : align === 'right' ? W - M : W / 2;
     let y = (hasImg && layout === 'both') ? H - textH : (H - textH) / 2;
-    for (const l of lines) { b.fillText(l, W / 2, y); y += lineH; }
+    for (const l of lines) { b.fillText(l, x, y); y += lineH; }
   }
   if ($('frame').checked) { b.lineWidth = 3; b.strokeStyle = '#000'; b.strokeRect(1.5, 1.5, W - 3, H - 3); }
 
@@ -207,9 +402,12 @@ function render(fit = 1) {
   }
   const gb = gray(b);
   for (let i = 0; i < W * H; i++) if (gb[i] < 128) bits[i] = 1;
+  if ($('invert').checked) for (let i = 0; i < W * H; i++) bits[i] ^= 1;
+  if ($('flip').checked) bits.reverse();                       // reversing the whole array = 180 degrees
   const dc = +$('dead').value;                       // hide a dead head dot: copy its column onto the next dot
   if (dc > 0 && dc < W - 1) for (let y = 0; y < H; y++) if (bits[y * W + dc]) { bits[y * W + dc + 1] = 1; if (dc > 0) bits[y * W + dc - 1] = 1; }
   window.bits = bits;
+  window.pctBlack = Math.round(100 * bits.reduce((n, v) => n + v, 0) / (W * H));
 
   const pv = $('pv').getContext('2d');
   const id = pv.createImageData(W, H);
@@ -225,7 +423,8 @@ function render(fit = 1) {
   const kb = toPCX(bits).length;
   if (hasImg && $('fit').checked && kb > BUDGET && fit > 0.2) return render(fit * 0.9);   // shrink photo until it fits
   const info = pct + '% black, ' + (kb / 1024).toFixed(1) + ' KB' + (fit < 1 ? ', photo shrunk to ' + Math.round(fit * 100) + '%' : '');
-  $('cover').innerHTML = (pct > 35 || kb > BUDGET) ? '<span class="warn">' + info + ' - big files may crash the printer</span>' : info;
+  const warn = pct > 35 || kb > BUDGET;
+  $('cover').innerHTML = (note ? '<span class="warn">' + note + '</span><br>' : '') + (warn ? '<span class="warn">' + info + ' - big files may crash the printer</span>' : info);
 }
 
 // Monochrome PCX, same layout as the file that worked on the printer
@@ -359,11 +558,32 @@ async function job(header, data) {
   return r;
 }
 
-$('btn').onclick = () => {
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const saveCnt = () => { try { localStorage.setItem('lp50cnt', $('cnt').value); } catch (e) {} };
+try { const v = localStorage.getItem('lp50cnt'); if (v !== null && v !== '') $('cnt').value = v; } catch (e) {}
+$('cnt').addEventListener('input', saveCnt);
+$('btn').onclick = async () => {
   if (!rx) return;
-  render();
-  const data = toPCX(window.bits);
-  job('J' + data.length + ',' + $('copies').value + ',' + $('density').value + ',' + labelArgs() + '\n', data);
+  const copies = Math.max(1, +$('copies').value || 1);
+  const numbered = /\{n(?::\d+)?\}/.test($('text').value + $('code').value);
+  if (window.pctBlack > 60) { $('status').textContent = 'Too much black (' + window.pctBlack + '%) - it would brown out the printer'; return; }
+  const send = (n) => { const d = toPCX(window.bits); return job('J' + d.length + ',' + n + ',' + $('density').value + ',' + labelArgs() + '\n', d); };
+  if (!numbered || copies < 2) {
+    curOffset = 0; render();
+    const r = await send(copies);
+    if (numbered && r.startsWith('DONE')) { $('cnt').value = (+$('cnt').value || 0) + 1; saveCnt(); render(); }
+    return;
+  }
+  for (let i = 0; i < copies; i++) {                              // every copy has its own number
+    curOffset = i; render();
+    $('status').textContent = 'Label ' + (i + 1) + ' of ' + copies + '...';
+    const r = await send(1);
+    if (!r.startsWith('DONE')) { curOffset = 0; render(); return; }
+    $('cnt').value = (+$('cnt').value || 0) + 1; saveCnt(); curOffset = 0;
+    if (i < copies - 1) await sleep(3500);                        // let the printer finish the label before the next upload
+  }
+  curOffset = 0; render();
+  $('status').textContent = 'Done ' + copies + ' labels';
 };
 // black band on top, tick every 10 columns, number every 40: the white gap in the band shows the dead column
 function calBits() {
@@ -473,6 +693,50 @@ $('labreset').onclick = () => {
   labShowCur();
 };
 labShowCur();
+
+// ---- templates (settings only, stored on this phone)
+const PRE_IDS = ['layout', 'text', 'size', 'bold', 'frame', 'align', 'font', 'invert', 'flip', 'code', 'bartype', 'dither', 'fit', 'thresh', 'copies', 'density'];
+const getPresets = () => { try { return JSON.parse(localStorage.getItem('lp50presets') || '{}'); } catch (e) { return {}; } };
+const putPresets = p => { try { localStorage.setItem('lp50presets', JSON.stringify(p)); } catch (e) { $('status').textContent = 'Cannot save here (private mode?)'; } };
+function refreshPresets(sel) {
+  const p = getPresets(), names = Object.keys(p).sort(), box = $('plist');
+  box.textContent = '';
+  const first = document.createElement('option'); first.value = ''; first.textContent = names.length ? '- pick one -' : '- none yet -'; box.appendChild(first);
+  for (const n of names) { const o = document.createElement('option'); o.value = n; o.textContent = n; box.appendChild(o); }
+  if (sel && names.includes(sel)) box.value = sel;
+}
+$('psave').onclick = () => {
+  const name = $('pname').value.trim();
+  if (!name) { $('status').textContent = 'Give the template a name first'; return; }
+  const snap = {};
+  for (const id of PRE_IDS) snap[id] = $(id).type === 'checkbox' ? $(id).checked : $(id).value;
+  const p = getPresets(); p[name] = snap; putPresets(p); refreshPresets(name);
+  $('status').textContent = 'Saved template "' + name + '"';
+};
+$('pload').onclick = () => {
+  const name = $('plist').value, snap = getPresets()[name];
+  if (!snap) return;
+  for (const id of PRE_IDS) if (id in snap) { if ($(id).type === 'checkbox') $(id).checked = !!snap[id]; else $(id).value = snap[id]; }
+  $('pname').value = name; render();
+  $('status').textContent = 'Loaded "' + name + '"';
+};
+$('pdel').onclick = () => {
+  const name = $('plist').value; if (!name) return;
+  const p = getPresets(); delete p[name]; putPresets(p); refreshPresets();
+  $('status').textContent = 'Deleted "' + name + '"';
+};
+refreshPresets();
+
+// panel LEDs follow the LCD text
+if (typeof MutationObserver !== 'undefined') {
+  const leds = () => {
+    const c = $('conn').textContent, st = $('status').textContent;
+    $('led-power').classList.toggle('on', /^Connected/i.test(c));
+    $('led-busy').classList.toggle('on', /Sending|Printing|Retrying|Feeding/i.test(st));
+    $('led-error').classList.toggle('on', /Error|failed|Flash firmware|Disconnected/i.test(st));
+  };
+  for (const id of ['conn', 'status']) new MutationObserver(leds).observe($(id), { childList: true, characterData: true, subtree: true });
+}
 
 if (typeof module !== 'undefined') module.exports = { toPCX, W, H };
 else render();
