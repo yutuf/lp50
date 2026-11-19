@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LP-50 Printer</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f4f4f2;color:#1d1d1b}
+  header{padding:16px 18px 8px}
+  h1{font-size:20px;margin:0}
+  .sub{font-size:13px;color:#777;margin-top:2px}
+  main{padding:8px 14px 40px;max-width:520px;margin:0 auto}
+  .card{background:#fff;border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+  .pvwrap{background:#e9e8e4;border-radius:10px;padding:10px;display:flex;justify-content:center}
+  canvas#pv{width:100%;max-width:360px;image-rendering:pixelated;background:#fff;border-radius:6px;box-shadow:0 0 0 1px #d0cfca}
+  .meta{font-size:12px;color:#888;text-align:right;margin-top:6px}
+  label{display:block;font-size:13px;color:#555;margin:10px 0 4px}
+  textarea,select,input[type=number]{width:100%;font:inherit;font-size:16px;padding:10px;border:1px solid #d6d5d0;border-radius:10px;background:#fff}
+  textarea{min-height:72px;resize:vertical}
+  input[type=range]{width:100%}
+  .row{display:flex;gap:10px}.row>*{flex:1}
+  .chk{display:flex;align-items:center;gap:8px;font-size:15px;margin:8px 0}
+  .chk input{width:20px;height:20px}
+  .file{display:block;padding:12px;border:1.5px dashed #c9c8c2;border-radius:10px;text-align:center;color:#555;font-size:15px}
+  .file input{display:none}
+  button{width:100%;font:inherit;font-size:17px;font-weight:600;padding:14px;border:0;border-radius:12px;cursor:pointer}
+  #btn{background:#1d1d1b;color:#fff}
+  #btn:disabled{opacity:.5}
+  .ghost{background:#e9e8e4;color:#1d1d1b;font-weight:500;font-size:15px;padding:11px;margin-top:8px}
+  #status{text-align:center;font-size:14px;color:#555;min-height:20px;margin-top:10px}
+  .warn{color:#b35400}
+</style>
+</head><body>
+<header><h1>LP-50 Printer</h1><div class="sub" id="conn">Not connected</div></header>
+<main>
+  <div class="card">
+    <div class="pvwrap"><canvas id="pv" width="360" height="200"></canvas></div>
+    <div class="meta" id="cover"></div>
+  </div>
+
+  <div class="card">
+    <label for="layout">Layout</label>
+    <select id="layout">
+      <option value="text">Text only</option>
+      <option value="image">Image only</option>
+      <option value="both">Image + text below</option>
+    </select>
+
+    <label for="text">Text</label>
+    <textarea id="text" placeholder="Type something...">Hello from my phone</textarea>
+    <div class="row">
+      <div><label for="size">Text size</label><input type="range" id="size" min="14" max="90" value="34"></div>
+    </div>
+    <div class="chk"><input type="checkbox" id="bold" checked><label for="bold" style="margin:0">Bold</label></div>
+    <div class="chk"><input type="checkbox" id="frame"><label for="frame" style="margin:0">Frame around label</label></div>
+  </div>
+
+  <div class="card">
+    <label class="file">Choose image<input type="file" id="file" accept="image/*"></label>
+    <div class="chk"><input type="checkbox" id="dither" checked><label for="dither" style="margin:0">Dither (photos)</label></div>
+    <label for="thresh">Brightness cut-off</label>
+    <input type="range" id="thresh" min="40" max="220" value="128">
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div><label for="copies">Copies</label><input type="number" id="copies" min="1" max="20" value="1"></div>
+      <div><label for="density">Darkness (0-15)</label><input type="number" id="density" min="0" max="15" value="6"></div>
+    </div>
+  </div>
+
+  <button id="connect" class="ghost" style="margin:0 0 8px">Connect to printer</button>
+  <button id="btn" disabled>Print</button>
+  <button class="ghost" id="feed" disabled>Feed one label</button>
+  <div id="status"></div>
+</main>
+
+<script>
+const W = 360, H = 200;
+let img = null;
+const $ = id => document.getElementById(id);
+
+$('file').onchange = e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const im = new Image();
+  im.onload = () => {
+    img = im;
+    if ($('layout').value === 'text') $('layout').value = $('text').value.trim() ? 'both' : 'image';
+    render();
+  };
+  im.src = URL.createObjectURL(f);
+};
+['layout', 'text', 'size', 'bold', 'frame', 'dither', 'thresh'].forEach(id => $(id).addEventListener('input', render));
+
+function layer() {
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const x = c.getContext('2d', { willReadFrequently: true });
+  x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
+  return x;
+}
+
+function gray(ctx) {
+  const d = ctx.getImageData(0, 0, W, H).data;
+  const g = new Float32Array(W * H);
+  for (let i = 0; i < W * H; i++) g[i] = 0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2];
+  return g;
+}
+
+function dither(g, bits, t) {          // Floyd-Steinberg
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x, o = g[i], n = o < t ? 0 : 255;
+    if (n === 0) bits[i] = 1;
+    const e = o - n;
+    if (x + 1 < W) g[i + 1] += e * 7 / 16;
+    if (y + 1 < H) {
+      if (x > 0) g[i + W - 1] += e * 3 / 16;
+      g[i + W] += e * 5 / 16;
+      if (x + 1 < W) g[i + W + 1] += e / 16;
+    }
+  }
+}
+
+function render() {
+  const layout = $('layout').value;
+  const size = +$('size').value;
+  const lines = $('text').value.split('\n');
+  const hasText = layout !== 'image' && $('text').value.trim().length > 0;
+  const hasImg = layout !== 'text' && img;
+  const lineH = size * 1.15;
+  const textH = hasText ? lines.length * lineH : 0;
+
+  const a = layer();                    // image layer (dithered)
+  if (hasImg) {
+    const boxH = Math.max(20, layout === 'both' && hasText ? H - textH - 6 : H);
+    const s = Math.min(W / img.width, boxH / img.height);
+    const w = img.width * s, h = img.height * s;
+    a.drawImage(img, (W - w) / 2, (boxH - h) / 2, w, h);
+  }
+
+  const b = layer();                    // text + frame layer (sharp)
+  b.fillStyle = '#000';
+  if (hasText) {
+    b.font = ($('bold').checked ? 'bold ' : '') + size + 'px system-ui, sans-serif';
+    b.textAlign = 'center';
+    b.textBaseline = 'top';
+    let y = (hasImg && layout === 'both') ? H - textH : (H - textH) / 2;
+    for (const l of lines) { b.fillText(l, W / 2, y); y += lineH; }
+  }
+  if ($('frame').checked) { b.lineWidth = 3; b.strokeStyle = '#000'; b.strokeRect(1.5, 1.5, W - 3, H - 3); }
+
+  const bits = new Uint8Array(W * H);  // 1 = black dot
+  const t = +$('thresh').value;
+  if (hasImg) {
+    const ga = gray(a);
+    if ($('dither').checked) dither(ga, bits, t);
+    else for (let i = 0; i < W * H; i++) if (ga[i] < t) bits[i] = 1;
+  }
+  const gb = gray(b);
+  for (let i = 0; i < W * H; i++) if (gb[i] < 128) bits[i] = 1;
+  window.bits = bits;
+
+  const pv = $('pv').getContext('2d');
+  const id = pv.createImageData(W, H);
+  let black = 0;
+  for (let i = 0; i < W * H; i++) {
+    const v = bits[i] ? 0 : 255;
+    black += bits[i];
+    id.data[i * 4] = id.data[i * 4 + 1] = id.data[i * 4 + 2] = v;
+    id.data[i * 4 + 3] = 255;
+  }
+  pv.putImageData(id, 0, 0);
+  const pct = Math.round(100 * black / (W * H));
+  $('cover').innerHTML = pct > 35 ? '<span class="warn">' + pct + '% black - may print faint or fail</span>' : pct + '% black';
+}
+
+// Monochrome PCX, same layout as the file that worked on the printer
+function toPCX(bits) {
+  const bpl = Math.ceil(W / 8), bplE = bpl + (bpl % 2);
+  const h = new Uint8Array(128);
+  const le = (o, v) => { h[o] = v & 255; h[o + 1] = (v >> 8) & 255; };
+  h[0] = 0x0A; h[1] = 2; h[2] = 1; h[3] = 1;
+  le(8, W - 1); le(10, H - 1); le(12, 100); le(14, 100);
+  for (let i = 40; i < 64; i++) h[i] = 255;
+  h[65] = 1; le(66, bplE); le(68, 1); le(70, W); le(72, H);
+  const out = Array.from(h);
+  const line = new Uint8Array(bplE);
+  for (let y = 0; y < H; y++) {
+    line.fill(0);
+    for (let xb = 0; xb < bpl; xb++) {
+      let v = 0;
+      for (let k = 0; k < 8; k++) {
+        const x = xb * 8 + k;
+        const white = x >= W ? 1 : (bits[y * W + x] ? 0 : 1);   // PCX: 1 = white
+        v = (v << 1) | white;
+      }
+      line[xb] = v;
+    }
+    let i = 0;
+    while (i < bplE) {
+      const v = line[i];
+      let n = 1;
+      while (i + n < bplE && line[i + n] === v && n < 63) n++;
+      if (n > 1 || v >= 0xC0) out.push(0xC0 | n, v); else out.push(v);
+      i += n;
+    }
+  }
+  return new Uint8Array(out);
+}
+
+// ------------------------------------------------------------------ Bluetooth
+const SVC = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const RXC = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';   // phone -> printer
+const TXC = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';   // printer -> phone
+let rx = null, waiter = null, chunk = 128;
+
+function setConnected(on, name) {
+  $('conn').textContent = on ? 'Connected: ' + name : 'Not connected';
+  $('btn').disabled = !on; $('feed').disabled = !on;
+  $('connect').textContent = on ? 'Reconnect' : 'Connect to printer';
+}
+
+$('connect').onclick = async () => {
+  if (!navigator.bluetooth) { $('status').textContent = 'Use Chrome on Android (Web Bluetooth).'; return; }
+  try {
+    $('status').textContent = 'Pick "LP50-Printer"...';
+    const dev = await navigator.bluetooth.requestDevice({ filters: [{ name: 'LP50-Printer' }], optionalServices: [SVC] });
+    dev.addEventListener('gattserverdisconnected', () => { rx = null; setConnected(false); $('status').textContent = 'Disconnected'; });
+    const gatt = await dev.gatt.connect();
+    const svc = await gatt.getPrimaryService(SVC);
+    rx = await svc.getCharacteristic(RXC);
+    const tx = await svc.getCharacteristic(TXC);
+    await tx.startNotifications();
+    tx.addEventListener('characteristicvaluechanged', e => {
+      const msg = new TextDecoder().decode(e.target.value).trim();
+      if (msg.startsWith('PRINTING')) $('status').textContent = 'Printing...';
+      if ((msg.startsWith('DONE') || msg.startsWith('ERR')) && waiter) { waiter(msg); waiter = null; }
+    });
+    setConnected(true, dev.name);
+    $('status').textContent = 'Ready';
+  } catch (e) {
+    $('status').textContent = 'Connect failed: ' + e.message;
+  }
+};
+
+async function writeAll(bytes, onProgress) {
+  for (let i = 0; i < bytes.length; i += chunk) {
+    const part = bytes.slice(i, i + chunk);
+    try {
+      await (rx.writeValueWithResponse ? rx.writeValueWithResponse(part) : rx.writeValue(part));
+    } catch (e) {
+      if (chunk > 20) { chunk = 20; return false; }   // phone can't do big packets: retry small
+      throw e;
+    }
+    if (onProgress) onProgress(Math.min(i + chunk, bytes.length), bytes.length);
+  }
+  return true;
+}
+
+function waitResult(ms) {
+  return new Promise(res => { waiter = res; setTimeout(() => { if (waiter) { waiter('ERR timeout'); waiter = null; } }, ms); });
+}
+
+async function job(header, data) {
+  $('btn').disabled = true; $('feed').disabled = true;
+  try {
+    const head = new TextEncoder().encode(header);
+    const all = new Uint8Array(head.length + data.length);
+    all.set(head); all.set(data, head.length);
+    const result = waitResult(120000);
+    let ok = await writeAll(all, (n, t) => { $('status').textContent = 'Sending ' + Math.round(100 * n / t) + '%'; });
+    if (!ok) {                                          // retry once with small packets
+      $('status').textContent = 'Retrying with small packets...';
+      await new Promise(r => setTimeout(r, 3500));      // printer side drops the half job after 3 s
+      ok = await writeAll(all, (n, t) => { $('status').textContent = 'Sending ' + Math.round(100 * n / t) + '%'; });
+    }
+    const r = await result;
+    $('status').textContent = r.startsWith('DONE') ? 'Done ✓' : 'Error: ' + r;
+  } catch (e) {
+    $('status').textContent = 'Error: ' + e.message;
+  }
+  $('btn').disabled = !rx; $('feed').disabled = !rx;
+}
+
+$('btn').onclick = () => {
+  if (!rx) return;
+  render();
+  const data = toPCX(window.bits);
+  job('J' + data.length + ',' + $('copies').value + ',' + $('density').value + '\n', data);
+};
+$('feed').onclick = () => { if (rx) job('F\n', new Uint8Array(0)); };
+
+if (typeof module !== 'undefined') module.exports = { toPCX, W, H };
+else render();
+</script>
+</body></html>
