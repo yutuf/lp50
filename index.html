@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-title" content="LP-50">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&display=swap" rel="stylesheet" crossorigin="anonymous">
 <style>
   :root{--desk:#e7e1d1;--desk-dot:#d3ccb8;--case:#dcd6c6;--case-hi:#ebe6d9;--case-lo:#b5ae99;--edge:#6f6a5a;--ink:#25231f;--muted:#5c5747;
     --lcd:#9fb07c;--lcd-ink:#1f2e17;--accent:#c8642d;--accent-dk:#6d2f12;--charcoal:#34322c;--field:#fffdf6;--line:#c9c1ab}
@@ -42,7 +42,7 @@
   .brand{min-width:0}
   .brand h1,.brand span{white-space:nowrap}
   @media (max-width:480px){.topbar{gap:10px}.logo{width:38px;height:38px}.brand h1{font-size:20px}.topbar .key{padding:9px 10px;font-size:11px;max-width:48%}}
-  @media (min-width:900px){.layout{grid-template-columns:minmax(340px,440px) minmax(0,1fr);align-items:start}.stagecol{position:sticky;top:12px}}
+  @media (min-width:900px){.layout{grid-template-columns:minmax(330px,410px) minmax(0,1fr);align-items:start}.stagecol{position:sticky;top:12px}}
 
   /* printer stage */
   .stage{border-radius:16px;padding:20px 18px 16px;background:linear-gradient(#f4f0e6,#e2dbc8);box-shadow:inset 0 1px 0 #fff,0 3px 0 var(--case-lo),0 12px 26px #0002}
@@ -90,7 +90,10 @@
   /* tabs + panel */
   .tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-top:2px}
   .tabs::-webkit-scrollbar{display:none}
-  .tab{flex:1 0 auto;display:flex;align-items:center;justify-content:center;padding:11px 14px;border:0;border-radius:12px 12px 0 0;cursor:pointer;
+  @media (max-width:899px){.tabs{-webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);mask-image:linear-gradient(90deg,#000 88%,transparent)}}
+  .tab::before{margin-right:.4em}
+  @media (min-width:900px){.tabs{gap:4px}.tab{font-size:11px!important;padding:11px 6px!important;letter-spacing:0!important}}
+  .tab{flex:1 0 auto;display:flex;align-items:center;justify-content:center;padding:11px 9px;border:0;border-radius:12px 12px 0 0;cursor:pointer;
     font:700 12px Silkscreen,"Courier New",monospace;letter-spacing:.5px;color:#4a463b;background:var(--case-lo);box-shadow:inset 0 -4px 0 #0000000d}
   .tab[aria-selected="true"]{color:var(--ink);background:var(--case);box-shadow:none}
   .tab[aria-selected="true"]::before{color:var(--accent)}
@@ -171,6 +174,20 @@
   .dbar i{flex:1;height:16px;border-radius:2px;background:#cdc5ae}
   .dbar i.on{background:linear-gradient(#5a564b,#2b2924)}
   .dbar i.on.hot{background:linear-gradient(#e47d42,#b9552a)}
+  /* mode badge, stamps, history */
+  .badge{display:inline-block;padding:2px 7px;border-radius:5px;background:var(--charcoal);color:#ffd27a;font:700 10px/1.4 Silkscreen,"Courier New",monospace;letter-spacing:1px;vertical-align:1px}
+  .badge.fast{background:#2f6b2a;color:#dcffd2}
+  .stamps{display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:8px}
+  .tile.mini{padding:10px 4px;gap:0}
+  .tile.mini::before{width:26px;height:26px}
+  .key.print.stop{background:linear-gradient(#5a564b,#2b2924);box-shadow:inset 0 1px 0 #fff3,0 4px 0 #15140f,0 6px 10px #0004}
+  .hist{display:grid;gap:10px}
+  .hcard{display:grid;grid-template-columns:120px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px;border-radius:12px;background:var(--case-hi);box-shadow:inset 0 1px 3px #0002}
+  .hcard img{display:block;width:120px;height:auto;image-rendering:pixelated;border-radius:4px;background:#fbf9ef;box-shadow:0 1px 3px #0003}
+  .hmeta b{display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .hmeta span{font-size:12px;color:var(--muted)}
+  .hcard .key{width:auto}
+  @media (max-width:420px){.hcard{grid-template-columns:96px minmax(0,1fr)}.hcard img{width:96px}.hcard .key{grid-column:1/-1}}
 </style>
 </head><body>
 <div class="wrap">
@@ -199,8 +216,8 @@
           <button type="button" data-step="copies" data-d="1" aria-label="More copies">+</button>
         </div>
       </div>
-      <button class="key" id="feed" data-ico="feed" disabled>Feed</button>
-      <button class="key print" id="btn" data-ico="print" disabled>Print</button>
+      <button class="key" id="feed" data-ico="feed">Feed</button>
+      <button class="key print" id="btn" data-ico="print">Print</button>
     </div>
   </div>
 
@@ -208,8 +225,9 @@
     <nav class="tabs" role="tablist" aria-label="Sections">
       <button class="tab" role="tab" data-tab="design" data-ico="pencil">Design</button>
       <button class="tab" role="tab" data-tab="image" data-ico="image">Image</button>
+      <button class="tab" role="tab" data-tab="batch" data-ico="list">Batch</button>
       <button class="tab" role="tab" data-tab="output" data-ico="sliders">Output</button>
-      <button class="tab" role="tab" data-tab="templates" data-ico="stack">Saved</button>
+      <button class="tab" role="tab" data-tab="library" data-ico="book">Library</button>
       <button class="tab" role="tab" data-tab="service" data-ico="wrench">Service</button>
     </nav>
     <div class="panelbox">
@@ -276,6 +294,37 @@
           <label class="switch">Invert (white on black)<input type="checkbox" id="invert"></label>
           <label class="switch">Upside down<input type="checkbox" id="flip"></label>
         </div>
+        <div id="stampbox">
+          <h2>Stamp</h2>
+          <select id="stamp" hidden><option value="none">None</option><option value="up">This side up</option><option value="warn">Warning</option><option value="glass">Fragile</option><option value="snow">Keep cold</option><option value="heart">Heart</option><option value="star">Star</option><option value="check">Check</option><option value="smile">Smile</option></select>
+          <div class="stamps" role="group" aria-label="Stamp">
+            <button class="tile mini" data-set="stamp" data-val="none" data-ico="none" aria-label="No stamp" title="No stamp"></button>
+            <button class="tile mini" data-set="stamp" data-val="up" data-ico="st_up" aria-label="This side up" title="This side up"></button>
+            <button class="tile mini" data-set="stamp" data-val="warn" data-ico="st_warn" aria-label="Warning" title="Warning"></button>
+            <button class="tile mini" data-set="stamp" data-val="glass" data-ico="st_glass" aria-label="Fragile" title="Fragile"></button>
+            <button class="tile mini" data-set="stamp" data-val="snow" data-ico="st_snow" aria-label="Keep cold" title="Keep cold"></button>
+            <button class="tile mini" data-set="stamp" data-val="heart" data-ico="st_heart" aria-label="Heart" title="Heart"></button>
+            <button class="tile mini" data-set="stamp" data-val="star" data-ico="st_star" aria-label="Star" title="Star"></button>
+            <button class="tile mini" data-set="stamp" data-val="check" data-ico="st_check" aria-label="Check" title="Check"></button>
+            <button class="tile mini" data-set="stamp" data-val="smile" data-ico="st_smile" aria-label="Smile" title="Smile"></button>
+          </div>
+        </div>
+      </section>
+
+      <section class="tabpanel" id="tab-batch" role="tabpanel" aria-label="Batch" hidden>
+        <h2>List</h2>
+        <textarea id="blist" rows="6" placeholder="Apples;9,90 TL&#10;Pears;7,50 TL&#10;Plums;12,00 TL" aria-label="Batch list"></textarea>
+        <div class="switches" style="margin-top:12px"><label class="switch">First line is column names<input type="checkbox" id="bhead"></label></div>
+        <p class="hint" id="binfo"></p>
+        <div class="chips" id="bcols" style="margin-top:8px"></div>
+        <h2>Preview row</h2>
+        <div class="stepper" style="max-width:200px">
+          <button type="button" data-step="brow" data-d="-1" aria-label="Previous row">&minus;</button>
+          <input type="number" id="brow" min="1" value="1" aria-label="Preview row">
+          <button type="button" data-step="brow" data-d="1" aria-label="Next row">+</button>
+        </div>
+        <button class="key print" id="bprint" data-ico="print" style="margin-top:18px">Print all rows</button>
+        <p class="hint">Each line becomes one label. Put {1}, {2} ... (or {name} with column names) in the text or QR content. Copies applies to every row.</p>
       </section>
 
       <section class="tabpanel" id="tab-image" role="tabpanel" aria-label="Image" hidden>
@@ -316,18 +365,28 @@
           <button type="button" data-step="cnt" data-d="1" aria-label="Higher number">+</button>
         </div>
         <p class="hint">Next number for {n}. With Copies above 1, each copy gets its own number.</p>
+        <h2>Speed &amp; feedback</h2>
+        <div class="switches">
+          <label class="switch">Fast printer fonts for plain text<input type="checkbox" id="fast" checked></label>
+          <label class="switch">Sounds and vibration<input type="checkbox" id="sound" checked></label>
+        </div>
+        <p class="hint">Fast mode sends plain-text labels as printer commands instead of a picture, so they print almost instantly. It steps aside for Turkish letters, stamps, invert, upside down or a dead-dot fix.</p>
       </section>
 
-      <section class="tabpanel" id="tab-templates" role="tabpanel" aria-label="Saved templates" hidden>
-        <h2>Save current design</h2>
+      <section class="tabpanel" id="tab-library" role="tabpanel" aria-label="Library" hidden>
+        <h2>Start from a template</h2>
+        <div class="tiles" id="gallery"></div>
+        <h2>Your templates</h2>
         <div class="saverow">
-          <input type="text" id="pname" placeholder="Template name" autocomplete="off" aria-label="Template name">
+          <input type="text" id="pname" placeholder="Name this design" autocomplete="off" aria-label="Template name">
           <button class="key small" id="psave" data-ico="save">Save</button>
         </div>
-        <h2>Your templates</h2>
-        <div class="chips" id="pchips"></div>
+        <div class="chips" id="pchips" style="margin-top:12px"></div>
         <div hidden><select id="plist"><option value="">-</option></select><button id="pload">Load</button><button id="pdel">Delete</button></div>
-        <p class="hint">Stored on this phone. Photos are not saved, only the settings.</p>
+        <h2>Recent prints</h2>
+        <div class="hist" id="hist"></div>
+        <button class="key small" id="hclear" data-ico="trash" style="margin-top:12px">Clear history</button>
+        <p class="hint">Templates and history are stored on this phone.</p>
       </section>
 
       <section class="tabpanel" id="tab-service" role="tabpanel" aria-label="Service" hidden>
@@ -454,9 +513,78 @@ const pad2 = n => String(n).padStart(2, '0');
 let curOffset = 0;                                // which copy of a numbered batch is being drawn
 function expand(t) {
   const d = new Date();
-  return t.replace(/\{date\}/g, pad2(d.getDate()) + '.' + pad2(d.getMonth() + 1) + '.' + d.getFullYear())
-          .replace(/\{time\}/g, pad2(d.getHours()) + ':' + pad2(d.getMinutes()))
-          .replace(/\{n(?::(\d+))?\}/g, (m, w) => String((+$('cnt').value || 0) + curOffset).padStart(+w || 0, '0'));
+  const fmt = x => pad2(x.getDate()) + '.' + pad2(x.getMonth() + 1) + '.' + x.getFullYear();
+  t = t.replace(/\{date([+-]\d+)?\}/g, (m, off) => { const x = new Date(d); if (off) x.setDate(x.getDate() + +off); return fmt(x); })
+       .replace(/\{time\}/g, pad2(d.getHours()) + ':' + pad2(d.getMinutes()))
+       .replace(/\{n(?::(\d+))?\}/g, (m, w) => String((+$('cnt').value || 0) + curOffset).padStart(+w || 0, '0'));
+  const R = curRow();
+  if (R) t = t.replace(/\{([^{}]+)\}/g, (m, k) => {
+    const key = k.trim().toLowerCase(), i = /^\d+$/.test(key) ? +key - 1 : R.headers.indexOf(key);
+    return i >= 0 && i < R.row.length ? R.row[i] : m;
+  });
+  return t;
+}
+// ---- batch list: one label per line, columns split by tab, ; or ,
+let batchOverride = null;                         // the row being printed during a batch run
+function parseList() {
+  const lines = $('blist').value.replace(/\r/g, '').split('\n').filter(l => l.trim() !== '');
+  if (!lines.length) return { headers: [], rows: [] };
+  const sep = ['\t', ';', ','].find(c => lines[0].includes(c)) || null;
+  const split = l => {
+    if (!sep) return [l.trim()];
+    const out = []; let cur = '', q = false;
+    for (let i = 0; i < l.length; i++) {
+      const ch = l[i];
+      if (ch === '"') { if (q && l[i + 1] === '"') { cur += '"'; i++; } else q = !q; }
+      else if (ch === sep && !q) { out.push(cur.trim()); cur = ''; }
+      else cur += ch;
+    }
+    out.push(cur.trim()); return out;
+  };
+  const rows = lines.map(split);
+  const headers = $('bhead').checked ? rows.shift().map(h => h.toLowerCase()) : [];
+  return { headers, rows };
+}
+function curRow() {
+  if (batchOverride) return batchOverride;
+  const L = parseList();
+  if (!L.rows.length) return null;
+  const i = Math.min(L.rows.length, Math.max(1, +$('brow').value || 1)) - 1;
+  return { row: L.rows[i], headers: L.headers };
+}
+// ---- stamps (12x12 pixel art, scaled up crisply)
+const STAMPS = {"up": [".....##.....", "....####....", "...######...", "..########..", ".....##.....", ".....##.....", ".....##.....", ".....##.....", ".....##.....", ".....##.....", "..########..", "..########.."], "warn": [".....##.....", ".....##.....", "....####....", "....#..#....", "...##..##...", "...#.##.#...", "..##.##.##..", "..#..##..#..", ".##......##.", ".#...##...#.", "############", "############"], "glass": [".##########.", ".#........#.", ".#..#.....#.", ".#..#.....#.", "..#......#..", "...######...", ".....##.....", ".....##.....", ".....##.....", ".....##.....", "...######...", "..########.."], "snow": [".....##.....", "..#..##..#..", "...#.##.#...", "....####....", ".#..####..#.", "############", "############", ".#..####..#.", "....####....", "...#.##.#...", "..#..##..#..", ".....##....."], "heart": ["............", ".###....###.", "#####..#####", "############", "############", "############", ".##########.", "..########..", "...######...", "....####....", ".....##.....", "............"], "star": [".....##.....", ".....##.....", "....####....", "############", ".##########.", "..########..", "...######...", "...######...", "..###..###..", "..##....##..", ".##......##.", "............"], "check": ["...........#", "..........##", ".........###", "........###.", "#......###..", "##....###...", "###..###....", ".######.....", "..####......", "...##.......", "............", "............"], "smile": ["...######...", "..#......#..", ".#........#.", "#..##..##..#", "#..##..##..#", "#..........#", "#..........#", "#.#......#.#", "#..######..#", ".#........#.", "..#......#..", "...######..."]};
+// ---- fast mode: plain text as the printer's own fonts (EPL A command), a few hundred bytes instead of an image
+const EPLF = [null, { w: 10, h: 12 }, { w: 12, h: 16 }, { w: 14, h: 20 }, { w: 16, h: 24 }, { w: 34, h: 48 }];
+function fastText(ctx, lines, M, align, bold, size) {
+  const maxChars = Math.max(1, ...lines.map(l => l.length)), n = lines.length;
+  const cands = [];
+  for (let f = 1; f <= 5; f++) for (let m = 1; m <= 6; m++) cands.push({ f, m, w: EPLF[f].w * m, h: EPLF[f].h * m });
+  const fits = o => o.w * maxChars <= W - 2 * M && n * Math.round(o.h * 1.25) - Math.round(o.h * .25) <= H - 2 * M;
+  const target = size * .75;
+  const pick = cands.filter(fits).sort((a, b) => Math.abs(a.h - target) - Math.abs(b.h - target) || a.m - b.m)[0] || cands[0];
+  const lh = Math.round(pick.h * 1.25), total = n * lh - (lh - pick.h);
+  let y = Math.round((H - total) / 2);
+  let cmds = 'N\nS' + $('spd').value + '\nD' + $('density').value + '\nQ' + $('lh').value + ',' + $('lg').value + '\n';
+  ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+  for (const l of lines) {
+    const wpx = l.length * pick.w;
+    const x = align === 'left' ? M : align === 'right' ? W - M - wpx : Math.round((W - wpx) / 2);
+    if (l.length) {
+      const esc = l.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      for (const dx of bold ? [0, 1] : [0]) {          // bold = the same text again one dot to the right
+        cmds += 'A' + (16 + x + dx) + ',' + (5 + y) + ',0,' + pick.f + ',' + pick.m + ',' + pick.m + ',N,"' + esc + '"\n';
+        ctx.save();
+        ctx.font = Math.round(pick.h * 1.3) + 'px "Courier New", monospace';
+        const mw = ctx.measureText(l).width || 1;
+        ctx.translate(x + dx, y - Math.round(pick.h * .12)); ctx.scale(wpx / mw, 1); ctx.fillText(l, 0, 0);
+        ctx.restore();
+      }
+    }
+    y += lh;
+  }
+  if ($('frame').checked) cmds += 'X16,5,3,375,204\n';
+  window.fastRaw = cmds;
 }
 function wrapLines(ctx, text, maxW) {             // keeps manual line breaks, wraps the rest by words
   const out = [];
@@ -516,6 +644,9 @@ function render(fit = 1) {
   const lineH = size * 1.15;
   const textH = hasText ? lines.length * lineH : 0;
   let note = '';
+  window.fastRaw = null;
+  const stampKey = $('stamp').value;
+  const fastOK = $('fast').checked && !$('invert').checked && !$('flip').checked && !(+$('dead').value) && /^[\x20-\x7E\n]*$/.test(txt);
 
   const a = layer();                    // image layer (dithered)
   if (hasImg) {
@@ -551,6 +682,13 @@ function render(fit = 1) {
         if (hasText) { const ty = by + bhh + 8; textBox(b, txt, M, ty, W - 2 * M, H - ty - M, size, bold, fam, align, true); }
       } catch (e) { note = 'This barcode type cannot encode that text'; }
     }
+  } else if (hasText && layout === 'text' && stampKey !== 'none' && STAMPS[stampKey]) {
+    const sp = STAMPS[stampKey], cell = Math.max(1, Math.floor((H - 2 * M) * 0.62 / sp.length)), sz = cell * sp.length, sy = Math.round((H - sz) / 2);
+    for (let r = 0; r < sp.length; r++) for (let c = 0; c < sp[r].length; c++) if (sp[r][c] === '#') b.fillRect(M + 4 + c * cell, sy + r * cell, cell, cell);
+    const tx = M + 4 + sz + 12;
+    textBox(b, txt, tx, M, W - tx - M, H - 2 * M, size, bold, fam, align === 'center' ? 'left' : align, true);
+  } else if (hasText && layout === 'text' && fastOK) {
+    fastText(b, lines, M, align, bold, size);
   } else if (hasText) {
     b.font = (bold ? 'bold ' : '') + size + 'px ' + fam;
     b.textAlign = align;
@@ -590,9 +728,12 @@ function render(fit = 1) {
   const pct = Math.round(100 * black / (W * H));
   const kb = toPCX(bits).length;
   if (hasImg && $('fit').checked && kb > BUDGET && fit > 0.2) return render(fit * 0.9);   // shrink photo until it fits
-  const info = pct + '% black, ' + (kb / 1024).toFixed(1) + ' KB' + (fit < 1 ? ', photo shrunk to ' + Math.round(fit * 100) + '%' : '');
-  const warn = pct > 35 || kb > BUDGET;
-  $('cover').innerHTML = (note ? '<span class="warn">' + note + '</span><br>' : '') + (warn ? '<span class="warn">' + info + ' - big files may crash the printer</span>' : info);
+  const fastNow = !!window.fastRaw;
+  const est = fastNow ? 1 : Math.max(1, Math.round(kb * 10 / 9600 + Math.ceil(kb / tune.chunk) * tune.pause / 1000 + (tune.gk + tune.post) / 1000 + 0.9 + kb / 2500));
+  const info = (fastNow ? 'printer fonts' : (kb / 1024).toFixed(1) + ' KB image') + ' \u00b7 ' + pct + '% black' + (fit < 1 ? ' \u00b7 photo at ' + Math.round(fit * 100) + '%' : '') + ' \u00b7 starts in \u2248' + est + ' s';
+  const warn = pct > 35 || (!fastNow && kb > BUDGET);
+  $('cover').innerHTML = '<span class="badge' + (fastNow ? ' fast' : '') + '">' + (fastNow ? 'FAST' : 'IMAGE') + '</span> '
+    + (note ? '<span class="warn">' + note + '</span> \u00b7 ' : '') + (warn ? '<span class="warn">' + info + ' (may fail)</span>' : info);
 }
 
 // Monochrome PCX, same layout as the file that worked on the printer
@@ -649,40 +790,56 @@ const labelArgs = (o = {}) => {
 
 function setConnected(on, name) {
   $('conn').textContent = on ? 'Connected: ' + name : 'Not connected';
-  $('btn').disabled = !on; $('feed').disabled = !on; $('cal').disabled = !on; $('sendraw').disabled = !on; $('upd').disabled = !on; $('labstart').disabled = !on;
+  $('btn').disabled = false; $('feed').disabled = false; $('cal').disabled = !on; $('sendraw').disabled = !on; $('upd').disabled = !on; $('labstart').disabled = !on;
   $('connect').textContent = on ? 'Reconnect' : 'Connect to printer';
 }
 
-$('connect').onclick = async () => {
+async function connectDevice(dev) {
+  if (!dev._lp50) {
+    dev._lp50 = true;
+    dev.addEventListener('gattserverdisconnected', () => { rx = null; setConnected(false); $('status').textContent = 'Disconnected'; });
+  }
+  const gatt = await dev.gatt.connect();
+  const svc = await gatt.getPrimaryService(SVC);
+  rx = await svc.getCharacteristic(RXC);
+  const tx = await svc.getCharacteristic(TXC);
+  await tx.startNotifications();
+  tx.addEventListener('characteristicvaluechanged', e => {
+    const msg = new TextDecoder().decode(e.target.value).trim();
+    if (msg.startsWith('PRINTING')) $('status').textContent = 'Printing...';
+    if (msg.startsWith('FW ')) fwv = parseInt(msg.slice(3)) || 1;
+    if (msg.startsWith('FW ')) $('conn').textContent += ' (firmware ' + msg.slice(3) + ')';
+    if (msg.startsWith('UPD ')) {
+      $('updinfo').innerHTML = 'Update mode for 5 min. Join WiFi <b>LP50-Update</b>, password <b>' + msg.slice(4) + '</b>, open <b>http://192.168.4.1</b> and choose the .bin file.';
+      if (waiter) { waiter('DONE'); waiter = null; }
+    }
+    if ((msg.startsWith('DONE') || msg.startsWith('ERR')) && waiter) { waiter(msg); waiter = null; }
+  });
+  fwv = 1;
+  setConnected(true, dev.name);
+  $('status').textContent = 'Ready';
+  try { await rx.writeValueWithoutResponse(new TextEncoder().encode('V\n')); } catch (e) {}
+}
+async function doConnect() {
   if (!navigator.bluetooth) { $('status').textContent = 'Use Chrome on Android (Web Bluetooth).'; return; }
   try {
     $('status').textContent = 'Pick "LP50-Printer"...';
     const dev = await navigator.bluetooth.requestDevice({ filters: [{ name: 'LP50-Printer' }], optionalServices: [SVC] });
-    dev.addEventListener('gattserverdisconnected', () => { rx = null; setConnected(false); $('status').textContent = 'Disconnected'; });
-    const gatt = await dev.gatt.connect();
-    const svc = await gatt.getPrimaryService(SVC);
-    rx = await svc.getCharacteristic(RXC);
-    const tx = await svc.getCharacteristic(TXC);
-    await tx.startNotifications();
-    tx.addEventListener('characteristicvaluechanged', e => {
-      const msg = new TextDecoder().decode(e.target.value).trim();
-      if (msg.startsWith('PRINTING')) $('status').textContent = 'Printing...';
-      if (msg.startsWith('FW ')) fwv = parseInt(msg.slice(3)) || 1;
-      if (msg.startsWith('FW ')) $('conn').textContent += ' (firmware ' + msg.slice(3) + ')';
-      if (msg.startsWith('UPD ')) {
-        $('updinfo').innerHTML = 'Update mode for 5 min. Join WiFi <b>LP50-Update</b>, password <b>' + msg.slice(4) + '</b>, open <b>http://192.168.4.1</b> and choose the .bin file.';
-        if (waiter) { waiter('DONE'); waiter = null; }
-      }
-      if ((msg.startsWith('DONE') || msg.startsWith('ERR')) && waiter) { waiter(msg); waiter = null; }
-    });
-    fwv = 1;
-    setConnected(true, dev.name);
-    $('status').textContent = 'Ready';
-    try { await rx.writeValueWithoutResponse(new TextEncoder().encode('V\n')); } catch (e) {}
+    await connectDevice(dev);
   } catch (e) {
-    $('status').textContent = 'Connect failed: ' + e.message;
+    $('status').textContent = e.name === 'NotFoundError' ? 'No printer picked' : 'Connect failed: ' + e.message;
   }
-};
+}
+$('connect').onclick = doConnect;
+async function autoConnect() {                    // reconnect to a printer this phone already allowed, where Chrome supports it
+  try {
+    if (!navigator.bluetooth || !navigator.bluetooth.getDevices) return;
+    const dev = (await navigator.bluetooth.getDevices()).find(d => d.name === 'LP50-Printer');
+    if (!dev) return;
+    $('status').textContent = 'Reconnecting...';
+    await connectDevice(dev);
+  } catch (e) { $('status').textContent = 'Tap Print or Connect to reach the printer'; }
+}
 
 async function writeAll(bytes, onProgress) {
   for (let i = 0; i < bytes.length; i += chunk) {
@@ -704,7 +861,9 @@ function waitResult(ms) {
 
 async function job(header, data) {
   let r = 'ERR';
-  $('btn').disabled = true; $('feed').disabled = true; $('cal').disabled = true; $('sendraw').disabled = true; $('upd').disabled = true;
+  if (!running) $('btn').disabled = true;
+  $('feed').disabled = true; $('cal').disabled = true; $('sendraw').disabled = true; $('upd').disabled = true;
+  sfx('start');
   try {
     const head = new TextEncoder().encode(header);
     const all = new Uint8Array(head.length + data.length);
@@ -722,7 +881,8 @@ async function job(header, data) {
     r = 'ERR ' + e.message;
     $('status').textContent = 'Error: ' + e.message;
   }
-  $('btn').disabled = !rx; $('feed').disabled = !rx; $('cal').disabled = !rx; $('sendraw').disabled = !rx; $('upd').disabled = !rx;
+  sfx(r.startsWith('DONE') ? 'done' : 'err');
+  $('btn').disabled = false; $('feed').disabled = false; $('cal').disabled = !rx; $('sendraw').disabled = !rx; $('upd').disabled = !rx;
   return r;
 }
 
@@ -730,28 +890,48 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const saveCnt = () => { try { localStorage.setItem('lp50cnt', $('cnt').value); } catch (e) {} };
 try { const v = localStorage.getItem('lp50cnt'); if (v !== null && v !== '') $('cnt').value = v; } catch (e) {}
 $('cnt').addEventListener('input', saveCnt);
-$('btn').onclick = async () => {
-  if (!rx) return;
-  const copies = Math.max(1, +$('copies').value || 1);
-  const numbered = /\{n(?::\d+)?\}/.test($('text').value + $('code').value);
-  if (window.pctBlack > 60) { $('status').textContent = 'Too much black (' + window.pctBlack + '%) - it would brown out the printer'; return; }
-  const send = (n) => { const d = toPCX(window.bits); return job('J' + d.length + ',' + n + ',' + $('density').value + ',' + labelArgs() + '\n', d); };
-  if (!numbered || copies < 2) {
-    curOffset = 0; render();
-    const r = await send(copies);
-    if (numbered && r.startsWith('DONE')) { $('cnt').value = (+$('cnt').value || 0) + 1; saveCnt(); render(); }
-    return;
+let running = false, stopReq = false;
+async function ensureConnected() { if (rx) return true; await doConnect(); return !!rx; }
+function sendCurrent(copies) {                    // sends whatever render() just produced
+  if (window.fastRaw && fwv >= 2) { const body = new TextEncoder().encode(window.fastRaw + 'P' + copies + '\n'); return job('R' + body.length + '\n', body); }
+  const d = toPCX(window.bits);
+  return job('J' + d.length + ',' + copies + ',' + $('density').value + ',' + labelArgs() + '\n', d);
+}
+function setRunning(on) {
+  running = on;
+  $('btn').textContent = on ? 'Stop' : 'Print';
+  $('btn').classList.toggle('stop', on);
+  if (typeof updateBatchInfo === 'function') updateBatchInfo();
+}
+async function runPrint(items, copiesEach, numbered) {
+  if (running) { stopReq = true; $('status').textContent = 'Stopping after this label...'; return; }
+  if (!(await ensureConnected())) return;
+  stopReq = false; setRunning(true);
+  let done = 0;
+  try {
+    for (let i = 0; i < items.length; i++) {
+      if (stopReq) { $('status').textContent = 'Stopped after ' + done + ' of ' + items.length; break; }
+      batchOverride = items[i].row ? items[i] : null; curOffset = items[i].offset || 0; render();
+      if (window.pctBlack > 60) { $('status').textContent = 'Too much black (' + window.pctBlack + '%) - it would brown out the printer'; break; }
+      if (items.length > 1) $('status').textContent = 'Label ' + (i + 1) + ' of ' + items.length + '...';
+      const wasFast = !!window.fastRaw && fwv >= 2;
+      const r = await sendCurrent(copiesEach);
+      if (!r.startsWith('DONE')) break;
+      addHistory(); done++;
+      if (i < items.length - 1) await sleep(wasFast ? 1500 : 3500);   // let the printer finish before the next upload
+    }
+  } finally {
+    if (numbered && done) { $('cnt').value = (+$('cnt').value || 0) + done; saveCnt(); }
+    batchOverride = null; curOffset = 0; setRunning(false); render();
   }
-  for (let i = 0; i < copies; i++) {                              // every copy has its own number
-    curOffset = i; render();
-    $('status').textContent = 'Label ' + (i + 1) + ' of ' + copies + '...';
-    const r = await send(1);
-    if (!r.startsWith('DONE')) { curOffset = 0; render(); return; }
-    $('cnt').value = (+$('cnt').value || 0) + 1; saveCnt(); curOffset = 0;
-    if (i < copies - 1) await sleep(3500);                        // let the printer finish the label before the next upload
-  }
-  curOffset = 0; render();
-  $('status').textContent = 'Done ' + copies + ' labels';
+  if (items.length > 1 && done === items.length) $('status').textContent = 'Done: ' + done + ' labels';
+}
+const usesCounter = () => /\{n(?::\d+)?\}/.test($('text').value + $('code').value);
+$('btn').onclick = () => {
+  if (running) { stopReq = true; $('status').textContent = 'Stopping after this label...'; return; }
+  const copies = Math.max(1, +$('copies').value || 1), numbered = usesCounter();
+  if (numbered && copies > 1) return runPrint([...Array(copies)].map((_, i) => ({ offset: i })), 1, true);
+  return runPrint([{ offset: 0 }], copies, numbered);
 };
 // black band on top, tick every 10 columns, number every 40: the white gap in the band shows the dead column
 function calBits() {
@@ -779,7 +959,7 @@ $('sendraw').onclick = () => {
   job('R' + body.length + '\n', body);
 };
 $('upd').onclick = () => { if (rx && !need2()) job('U\n', new Uint8Array(0)); };
-$('feed').onclick = () => { if (rx) job(fwv >= 2 ? 'F' + $('lh').value + ',' + $('lg').value + '\n' : 'F\n', new Uint8Array(0)); };
+$('feed').onclick = async () => { if (running || !(await ensureConnected())) return; job(fwv >= 2 ? 'F' + $('lh').value + ',' + $('lg').value + '\n' : 'F\n', new Uint8Array(0)); };
 
 // ------------------------------------------------------------------ Test lab
 // Each step prints a label that shows its own settings, so the paper is the log.
@@ -863,7 +1043,7 @@ $('labreset').onclick = () => {
 labShowCur();
 
 // ---- templates (settings only, stored on this phone)
-const PRE_IDS = ['layout', 'text', 'size', 'bold', 'frame', 'align', 'font', 'invert', 'flip', 'code', 'bartype', 'dither', 'fit', 'thresh', 'copies', 'density'];
+const PRE_IDS = ['layout', 'text', 'size', 'bold', 'frame', 'align', 'font', 'invert', 'flip', 'code', 'bartype', 'stamp', 'dither', 'fit', 'thresh', 'copies', 'density'];
 const getPresets = () => { try { return JSON.parse(localStorage.getItem('lp50presets') || '{}'); } catch (e) { return {}; } };
 const putPresets = p => { try { localStorage.setItem('lp50presets', JSON.stringify(p)); } catch (e) { $('status').textContent = 'Cannot save here (private mode?)'; } };
 function refreshPresets(sel) {
@@ -1006,6 +1186,171 @@ function buildChips() {
 const _refreshPresets = refreshPresets;
 refreshPresets = function (sel) { _refreshPresets(sel); buildChips(); };
 buildChips();
+
+// ------------------------------------------------------------------ features: icons, gallery, batch, history, sound, offline, share
+for (const k in STAMPS) PIX['st_' + k] = STAMPS[k];
+Object.assign(PIX, {"none": ["..######..", ".#......#.", "#......#.#", "#.....#..#", "#....#...#", "#...#....#", "#..#.....#", "#.#......#", ".#......#.", "..######.."], "list": ["#.########", "..........", "#.########", "..........", "#.########", "..........", "#.########"], "book": ["####..####", "#..#..#..#", "#..#..#..#", "#..#..#..#", "#..#..#..#", "#..#..#..#", "####..####", ".########."]});
+document.querySelectorAll('[data-ico]').forEach(el => { if (!el.style.getPropertyValue('--ico') && PIX[el.dataset.ico]) el.style.setProperty('--ico', pixURI(PIX[el.dataset.ico])); });
+['blist', 'bhead', 'brow', 'stamp', 'fast'].forEach(id => $(id).addEventListener('input', () => render()));
+
+// remembered preferences
+for (const [id, key] of [['fast', 'lp50fast'], ['sound', 'lp50sound']]) {
+  try { const v = localStorage.getItem(key); if (v !== null) $(id).checked = v === '1'; } catch (e) {}
+  $(id).addEventListener('input', () => { try { localStorage.setItem(key, $(id).checked ? '1' : '0'); } catch (e) {} });
+}
+
+// retro bleeps and a buzz on the phone
+let actx = null;
+function sfx(kind) {
+  if (!$('sound').checked) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const t0 = actx.currentTime;
+    const tone = (f, at, dur, type, vol) => {
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = type; o.frequency.value = f;
+      g.gain.setValueAtTime(vol, t0 + at); g.gain.exponentialRampToValueAtTime(0.0001, t0 + at + dur);
+      o.connect(g).connect(actx.destination); o.start(t0 + at); o.stop(t0 + at + dur + 0.02);
+    };
+    if (kind === 'start') for (let i = 0; i < 6; i++) tone(170 + (i % 2) * 50, i * 0.05, 0.04, 'square', 0.03);
+    if (kind === 'done') { tone(880, 0, 0.1, 'square', 0.04); tone(1320, 0.11, 0.16, 'square', 0.04); if (navigator.vibrate) navigator.vibrate(60); }
+    if (kind === 'err') { tone(140, 0, 0.3, 'sawtooth', 0.05); if (navigator.vibrate) navigator.vibrate([80, 60, 80]); }
+  } catch (e) {}
+}
+
+// put text at the cursor in the label text
+function insertText(ins) {
+  const t = $('text'), a0 = t.selectionStart ?? t.value.length, e0 = t.selectionEnd ?? a0;
+  t.value = t.value.slice(0, a0) + ins + t.value.slice(e0);
+  t.selectionStart = t.selectionEnd = a0 + ins.length;
+  t.dispatchEvent(new Event('input'));
+  $('status').textContent = 'Added ' + ins + ' to the text';
+}
+
+// batch tab
+function updateBatchInfo() {
+  const L = parseList(), n = L.rows.length, box = $('bcols');
+  $('bprint').textContent = running ? 'Stop' : (n ? 'Print all ' + n + ' labels' : 'Print all rows');
+  $('bprint').classList.toggle('stop', running);
+  $('brow').max = Math.max(1, n);
+  if (+$('brow').value > Math.max(1, n)) $('brow').value = Math.max(1, n);
+  const cols = n ? Math.max(...L.rows.map(r => r.length)) : 0;
+  $('binfo').textContent = n ? n + ' rows \u00b7 ' + cols + ' column' + (cols > 1 ? 's' : '') + '. Tap a column to add it to the label text.'
+                             : 'Type or paste a list: one label per line, columns separated by ; , or tabs (Excel paste works).';
+  const sig = cols + '|' + L.headers.join(',') + '|' + (L.rows[0] || []).join('|');
+  if (box.dataset.sig === sig) return;
+  box.dataset.sig = sig; box.textContent = '';
+  for (let i = 0; i < cols; i++) {
+    const key = L.headers[i] ? '{' + L.headers[i] + '}' : '{' + (i + 1) + '}';
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'chip';
+    b.textContent = key + (L.rows[0] && L.rows[0][i] ? ' = ' + L.rows[0][i].slice(0, 14) : '');
+    b.onclick = () => insertText(key);
+    box.appendChild(b);
+  }
+}
+$('bprint').onclick = () => {
+  if (running) { stopReq = true; $('status').textContent = 'Stopping after this label...'; return; }
+  const L = parseList();
+  if (!L.rows.length) { $('status').textContent = 'Add some lines to the list first'; return; }
+  runPrint(L.rows.map((row, i) => ({ row, headers: L.headers, offset: i })), Math.max(1, +$('copies').value || 1), usesCounter());
+};
+const _syncUI = syncUI;
+syncUI = function () { _syncUI(); $('stampbox').hidden = $('layout').value !== 'text'; updateBatchInfo(); };
+
+// ready-made templates
+const GBASE = { invert: false, flip: false, frame: false, bold: true, stamp: 'none', code: '', font: 'sans', align: 'center' };
+const GALLERY = [
+  { name: 'Price tag', ico: 'text', s: { layout: 'text', text: 'Product name\n99,90 TL', size: 40, frame: true } },
+  { name: 'Name badge', ico: 'st_smile', s: { layout: 'text', text: 'Hello, my name is\nYour Name', size: 34, frame: true } },
+  { name: 'Address', ico: 'list', s: { layout: 'text', text: 'Name Surname\nStreet Name 12/3\n34000 Istanbul', size: 26, bold: false, align: 'left' } },
+  { name: 'Folder', ico: 'folder', s: { layout: 'text', text: 'INVOICES\n2026', size: 60, font: 'condensed' } },
+  { name: 'Fragile', ico: 'st_glass', s: { layout: 'text', text: 'FRAGILE\nHandle with care', size: 34, frame: true, align: 'left', stamp: 'glass' } },
+  { name: 'This side up', ico: 'st_up', s: { layout: 'text', text: 'THIS\nSIDE\nUP', size: 44, frame: true, align: 'left', font: 'condensed', stamp: 'up' } },
+  { name: 'Food date', ico: 'st_snow', s: { layout: 'text', text: 'Soup\nMade {date}\nUse by {date+3}', size: 26, align: 'left', stamp: 'snow' } },
+  { name: 'WiFi QR', ico: 'qr', s: { layout: 'qr', code: 'WIFI:T:WPA;S:MyNetwork;P:MyPassword;;', text: 'WiFi\nMyNetwork\nScan to join', size: 28, align: 'left' } },
+  { name: 'Contact QR', ico: 'qr', s: { layout: 'qr', code: 'MECARD:N:Your Name;TEL:+900000000000;EMAIL:you@example.com;;', text: 'Your Name\n+90 000 000 00 00', size: 24, align: 'left' } },
+  { name: 'Asset tag', ico: 'barcode', s: { layout: 'barcode', bartype: 'CODE128', code: 'ASSET-{n:5}', text: 'ASSET-{n:5}', size: 26 } },
+  { name: 'Shelf labels', ico: 'list', tab: 'batch', s: { layout: 'text', text: '{1}\n{2}', size: 40, frame: true, blist: 'Apples;9,90 TL\nPears;7,50 TL\nPlums;12,00 TL', bhead: false, brow: 1 } },
+];
+function applySnap(snap) {
+  for (const [k, v] of Object.entries(snap)) { const el = $(k); if (!el) continue; if (el.type === 'checkbox') el.checked = !!v; else el.value = v; }
+  render();
+}
+for (const g of GALLERY) {
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'tile'; b.textContent = g.name;
+  b.dataset.ico = g.ico; if (PIX[g.ico]) b.style.setProperty('--ico', pixURI(PIX[g.ico]));
+  b.onclick = () => { applySnap({ ...GBASE, ...g.s }); showTab(g.tab || 'design'); $('status').textContent = g.name + ': edit the text to make it yours'; };
+  $('gallery').appendChild(b);
+}
+
+// print history with one-tap reprint
+const HKEY = 'lp50hist';
+const getHist = () => { try { return JSON.parse(localStorage.getItem(HKEY) || '[]'); } catch (e) { return []; } };
+function putHist(h) { for (;;) { try { localStorage.setItem(HKEY, JSON.stringify(h)); return; } catch (e) { if (!h.length) return; h.pop(); } } }
+function thumbURL(bits) {
+  const tw = W / 2, th = H / 2, c = document.createElement('canvas'); c.width = tw; c.height = th;
+  const g = c.getContext('2d'), id = g.createImageData(tw, th);
+  for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) {
+    const i = 2 * y * W + 2 * x, on = bits[i] | bits[i + 1] | bits[i + W] | bits[i + W + 1], o = (y * tw + x) * 4;
+    id.data[o] = id.data[o + 1] = id.data[o + 2] = on ? 30 : 251; id.data[o + 3] = 255;
+  }
+  g.putImageData(id, 0, 0);
+  return c.toDataURL('image/png');
+}
+function addHistory() {
+  const e = { t: Date.now(), name: (expand($('text').value).split('\n')[0] || $('layout').value).slice(0, 40), thumb: thumbURL(window.bits) };
+  if (window.fastRaw && fwv >= 2) { e.kind = 'raw'; e.data = window.fastRaw; }
+  else { const d = toPCX(window.bits); let bin = ''; for (let i = 0; i < d.length; i++) bin += String.fromCharCode(d[i]); e.kind = 'pcx'; e.data = btoa(bin); }
+  const h = getHist(); h.unshift(e); putHist(h.slice(0, 24)); buildHist();
+}
+async function reprint(e) {
+  if (running || !(await ensureConnected())) return;
+  const copies = Math.max(1, +$('copies').value || 1);
+  if (e.kind === 'raw') { const body = new TextEncoder().encode(e.data + 'P' + copies + '\n'); await job('R' + body.length + '\n', body); return; }
+  const d = Uint8Array.from(atob(e.data), ch => ch.charCodeAt(0));
+  await job('J' + d.length + ',' + copies + ',' + $('density').value + ',' + labelArgs() + '\n', d);
+}
+function buildHist() {
+  const box = $('hist'), h = getHist(); box.textContent = '';
+  $('hclear').hidden = !h.length;
+  if (!h.length) { const p = document.createElement('p'); p.className = 'hint'; p.style.margin = '0'; p.textContent = 'Printed labels show up here for one-tap reprints.'; box.appendChild(p); return; }
+  for (const e of h) {
+    const card = document.createElement('div'); card.className = 'hcard';
+    const im = document.createElement('img'); im.src = e.thumb; im.alt = e.name; im.width = 180; im.height = 100;
+    const meta = document.createElement('div'); meta.className = 'hmeta';
+    const nm = document.createElement('b'); nm.textContent = e.name;
+    const d = new Date(e.t), tm = document.createElement('span');
+    tm.textContent = pad2(d.getDate()) + '.' + pad2(d.getMonth() + 1) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + (e.kind === 'raw' ? ' \u00b7 fast' : '');
+    meta.append(nm, tm);
+    const rb = document.createElement('button'); rb.type = 'button'; rb.className = 'key small'; rb.textContent = 'Reprint';
+    rb.dataset.ico = 'print'; rb.style.setProperty('--ico', pixURI(PIX.print));
+    rb.onclick = () => reprint(e);
+    card.append(im, meta, rb); box.appendChild(card);
+  }
+}
+$('hclear').onclick = () => { if (confirm('Clear the print history?')) { putHist([]); buildHist(); } };
+buildHist();
+
+// Ctrl/Cmd+P prints
+document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') { e.preventDefault(); $('btn').click(); } });
+
+// shared from another app (installed app's share sheet)
+(() => {
+  const q = new URLSearchParams(location.search);
+  const title = q.get('title') || '', text = q.get('text') || '';
+  const url = q.get('url') || (text.match(/https?:\/\/\S+/) || [])[0] || '';
+  if (!title && !text && !url) return;
+  if (url) { $('layout').value = 'qr'; $('code').value = url; $('text').value = (title || text.replace(url, '').trim() || 'Scan me').slice(0, 80); }
+  else { $('layout').value = 'text'; $('text').value = [title, text].filter(Boolean).join('\n').slice(0, 200); }
+  showTab('design');
+  history.replaceState(null, '', location.pathname);
+})();
+
+// works offline once loaded (page, icons, fonts and code libraries are cached)
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(location.hostname))) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+autoConnect();
 
 // panel LEDs follow the LCD text
 if (typeof MutationObserver !== 'undefined') {
