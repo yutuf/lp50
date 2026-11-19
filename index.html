@@ -110,7 +110,7 @@
     </div>
     <div class="meta" id="labinfo" style="text-align:left"></div>
     <button class="ghost" id="labapply" disabled>Use best result</button>
-    <button class="ghost" id="labreset">Reset to safe defaults</button>
+    <button class="ghost" id="labreset">Reset to slow safe settings</button>
     <div class="meta" id="labcur" style="text-align:left"></div>
   </details>
 
@@ -167,7 +167,7 @@ function dither(g, bits, t) {          // Floyd-Steinberg
   }
 }
 
-let BUDGET = 4800;   // largest PCX known to upload fine (HACKED test image was 4779 B); the test lab can raise it
+let BUDGET = 8000;   // auto-test photos up to 8.2 KB printed fine; "Reset to slow safe settings" goes back to 4800
 try { const b = +localStorage.getItem('lp50budget'); if (b > 1000) BUDGET = b; } catch (e) {}
 
 function render(fit = 1) {
@@ -270,8 +270,9 @@ let rx = null, waiter = null, chunk = 128;
 let fwv = 1;   // firmware version, 2+ announces itself after connecting
 const need2 = () => { if (fwv < 2) { $('status').textContent = 'Flash firmware 2 first (see notes)'; return true; } return false; };
 // upload pacing sent with every print job (firmware 2); the test lab finds faster safe values
-const SAFE = { chunk: 64, pause: 60, post: 2000, gk: 500 };
-let tune = { ...SAFE };
+const SAFE = { chunk: 64, pause: 60, post: 2000, gk: 500 };   // slow and certain
+const FAST = { chunk: 64, pause: 10, post: 300, gk: 100 };    // auto-test: every step down to 5 / 0 / 0 ms printed fine; this keeps a margin
+let tune = { ...FAST };
 try { Object.assign(tune, JSON.parse(localStorage.getItem('lp50tune') || '{}')); } catch (e) {}
 // old firmware ignores the extra fields
 const labelArgs = (o = {}) => {
