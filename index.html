@@ -188,6 +188,14 @@
   .hmeta span{font-size:12px;color:var(--muted)}
   .hcard .key{width:auto}
   @media (max-width:420px){.hcard{grid-template-columns:96px minmax(0,1fr)}.hcard img{width:96px}.hcard .key{grid-column:1/-1}}
+  /* DIP switch block drawn like the one on the printer's RS232 board */
+  .dips{display:flex;gap:6px;width:max-content;margin-top:12px;padding:8px 12px 6px;border-radius:6px;background:#2a5aa8;box-shadow:inset 0 1px 0 #ffffff40,0 3px 0 #173a78}
+  .dip{display:flex;flex-direction:column;align-items:center;gap:4px;color:#fff;font:700 10px Silkscreen,"Courier New",monospace}
+  .dip i{position:relative;display:block;width:16px;height:30px;border-radius:2px;background:#163a78}
+  .dip i::after{content:"";position:absolute;left:2px;right:2px;top:3px;height:12px;border-radius:1px;background:#f3f0e6}
+  .dip.off i::after{top:auto;bottom:3px}
+  .dip.na{opacity:.4}
+  .dipon{font:700 10px Silkscreen,"Courier New",monospace;color:#fff;align-self:flex-start;margin-right:4px}
 </style>
 </head><body>
 <div class="wrap">
@@ -345,6 +353,17 @@
           <label class="switch">Dither (best for photos)<input type="checkbox" id="dither" checked></label>
           <label class="switch">Shrink to fit printer memory<input type="checkbox" id="fit" checked></label>
         </div>
+        <label class="field">Dither style</label>
+        <select id="dmode" hidden><option value="pattern">Pattern</option><option value="smooth">Smooth</option></select>
+        <div class="seg" role="group" aria-label="Dither style">
+          <button data-set="dmode" data-val="pattern">Pattern &middot; fast</button>
+          <button data-set="dmode" data-val="smooth">Smooth</button>
+        </div>
+        <p class="hint">Pattern makes photos about half the size, so they upload twice as fast and can print bigger.</p>
+        <div class="switches" style="margin-top:14px"><label class="switch">Auto contrast<input type="checkbox" id="auto" checked></label></div>
+        <div class="rangehead"><label class="field" for="gamma">Lighter midtones</label><output id="gammaOut"></output></div>
+        <input type="range" id="gamma" min="0.7" max="1.8" step="0.05" value="1.2">
+        <p class="hint">Thermal dots spread a little, so photos print darker than on screen. Raise this if faces look muddy.</p>
         <div class="rangehead"><label class="field" for="thresh">Brightness cut-off</label><output id="threshOut"></output></div>
         <input type="range" id="thresh" min="40" max="220" value="128">
       </section>
@@ -390,6 +409,20 @@
       </section>
 
       <section class="tabpanel" id="tab-service" role="tabpanel" aria-label="Service" hidden>
+        <div class="group">
+          <h2>Cable speed</h2>
+          <select id="baud" aria-label="Cable speed">
+            <option value="9600">9600 baud (factory)</option>
+            <option value="19200">19200 baud (2&times; faster)</option>
+            <option value="38400">38400 baud (4&times; faster)</option>
+            <option value="57600">57600 baud (6&times; faster)</option>
+            <option value="115200">115200 baud (12&times; faster)</option>
+          </select>
+          <div class="dips" id="dips" aria-hidden="true"></div>
+          <p class="hint">1. Turn the printer off and set DIP switches 1&ndash;3 like the picture (white = position of the slider; 4&ndash;8 stay as they are). 2. Turn it on. 3. Press the button below. 4. Run the Test lab (pause and size) at the new speed.</p>
+          <button class="key small" id="baudset" style="margin-top:10px">Set ESP to this speed</button>
+          <p class="hint" id="baudinfo"></p>
+        </div>
         <div class="group">
           <h2>Head alignment</h2>
           <label class="field" for="dead">Dead dot column (0 = off)</label>
@@ -627,6 +660,30 @@ function barcodeCanvas(data, fmt, maxW, h) {
   return c;
 }
 
+// ---- photo quality: ordered (Bayer) dither and tone curve
+const BAYER8 = [[0,32,8,40,2,34,10,42],[48,16,56,24,50,18,58,26],[12,44,4,36,14,46,6,38],[60,28,52,20,62,30,54,22],[3,35,11,43,1,33,9,41],[51,19,59,27,49,17,57,25],[15,47,7,39,13,45,5,37],[63,31,55,23,61,29,53,21]];
+function bayer(g, bits, t) {                     // repeating 8x8 pattern: compresses about 2x better than error diffusion
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x;
+    if (g[i] < 254.5 && g[i] < (BAYER8[y & 7][x & 7] + .5) * 4 - 128 + t) bits[i] = 1;
+  }
+}
+function tonePhoto(g, r) {                       // auto levels on the photo area, then lift midtones for thermal dot gain
+  if (!r) return;
+  const [x0, y0, x1, y1] = r, gam = +$('gamma').value || 1;
+  let lo = 0, hi = 255;
+  if ($('auto').checked) {
+    const hist = new Uint32Array(256); let n = 0;
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { hist[Math.max(0, Math.min(255, g[y * W + x] | 0))]++; n++; }
+    let c = 0; while (lo < 255 && (c += hist[lo]) < n * 0.01) lo++;
+    c = 0; while (hi > 0 && (c += hist[hi]) < n * 0.01) hi--;
+    if (hi - lo < 16) { lo = 0; hi = 255; }
+  }
+  const lut = new Float32Array(256);
+  for (let v = 0; v < 256; v++) lut[v] = 255 * Math.pow(Math.min(1, Math.max(0, (v - lo) / (hi - lo))), 1 / gam);
+  for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const i = y * W + x; g[i] = lut[Math.max(0, Math.min(255, g[i] | 0))]; }
+}
+
 let BUDGET = 8000;   // auto-test photos up to 8.2 KB printed fine; "Reset to slow safe settings" goes back to 4800
 try { const b = +localStorage.getItem('lp50budget'); if (b > 1000) BUDGET = b; } catch (e) {}
 
@@ -649,11 +706,13 @@ function render(fit = 1) {
   const fastOK = $('fast').checked && !$('invert').checked && !$('flip').checked && !(+$('dead').value) && /^[\x20-\x7E\n]*$/.test(txt);
 
   const a = layer();                    // image layer (dithered)
+  let ir = null;                        // photo rectangle, for the tone curve
   if (hasImg) {
     const boxH = Math.max(20, layout === 'both' && hasText ? H - textH - 6 : H);
     const s = Math.min(W / src.width, boxH / src.height) * fit;
     const w = src.width * s, h = src.height * s;
     a.drawImage(src, (W - w) / 2, (boxH - h) / 2, w, h);
+    ir = [Math.max(0, Math.floor((W - w) / 2)), Math.max(0, Math.floor((boxH - h) / 2)), Math.min(W, Math.ceil((W + w) / 2)), Math.min(H, Math.ceil((boxH + h) / 2))];
   }
 
   const b = layer();                    // text, codes and frame layer (sharp)
@@ -703,7 +762,8 @@ function render(fit = 1) {
   const t = +$('thresh').value;
   if (hasImg) {
     const ga = gray(a);
-    if ($('dither').checked) dither(ga, bits, t);
+    tonePhoto(ga, ir);
+    if ($('dither').checked) { if ($('dmode').value === 'pattern') bayer(ga, bits, t); else dither(ga, bits, t); }
     else for (let i = 0; i < W * H; i++) if (ga[i] < t) bits[i] = 1;
   }
   const gb = gray(b);
@@ -729,7 +789,7 @@ function render(fit = 1) {
   const kb = toPCX(bits).length;
   if (hasImg && $('fit').checked && kb > BUDGET && fit > 0.2) return render(fit * 0.9);   // shrink photo until it fits
   const fastNow = !!window.fastRaw;
-  const est = fastNow ? 1 : Math.max(1, Math.round(kb * 10 / 9600 + Math.ceil(kb / tune.chunk) * tune.pause / 1000 + (tune.gk + tune.post) / 1000 + 0.9 + kb / 2500));
+  const est = fastNow ? 1 : Math.max(1, Math.round(kb * 10 / curBaud + Math.ceil(kb / tune.chunk) * tune.pause / 1000 + (tune.gk + tune.post) / 1000 + 0.9 + kb / 2500));
   const info = (fastNow ? 'printer fonts' : (kb / 1024).toFixed(1) + ' KB image') + ' \u00b7 ' + pct + '% black' + (fit < 1 ? ' \u00b7 photo at ' + Math.round(fit * 100) + '%' : '') + ' \u00b7 starts in \u2248' + est + ' s';
   const warn = pct > 35 || (!fastNow && kb > BUDGET);
   $('cover').innerHTML = '<span class="badge' + (fastNow ? ' fast' : '') + '">' + (fastNow ? 'FAST' : 'IMAGE') + '</span> '
@@ -774,7 +834,8 @@ function toPCX(bits) {
 const SVC = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
 const RXC = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';   // phone -> printer
 const TXC = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';   // printer -> phone
-let rx = null, waiter = null, chunk = 128;
+let rx = null, waiter = null, chunk = 240;   // fits one packet at the ESP's 247-byte MTU; drops to 20 if the phone refuses
+let curBaud = 9600;                              // cable speed reported by firmware 3
 let fwv = 1;   // firmware version, 2+ announces itself after connecting
 const need2 = () => { if (fwv < 2) { $('status').textContent = 'Flash firmware 2 first (see notes)'; return true; } return false; };
 // upload pacing sent with every print job (firmware 2); the test lab finds faster safe values
@@ -807,8 +868,12 @@ async function connectDevice(dev) {
   tx.addEventListener('characteristicvaluechanged', e => {
     const msg = new TextDecoder().decode(e.target.value).trim();
     if (msg.startsWith('PRINTING')) $('status').textContent = 'Printing...';
-    if (msg.startsWith('FW ')) fwv = parseInt(msg.slice(3)) || 1;
-    if (msg.startsWith('FW ')) $('conn').textContent += ' (firmware ' + msg.slice(3) + ')';
+    if (msg.startsWith('FW ')) {
+      fwv = parseInt(msg.slice(3)) || 1;
+      const bm = msg.match(/B(\d+)/);
+      if (bm) { curBaud = +bm[1]; $('baud').value = String(curBaud); syncDips(); render(); }
+      $('conn').textContent += ' (firmware ' + fwv + (bm ? ', ' + bm[1] + ' baud' : '') + ')';
+    }
     if (msg.startsWith('UPD ')) {
       $('updinfo').innerHTML = 'Update mode for 5 min. Join WiFi <b>LP50-Update</b>, password <b>' + msg.slice(4) + '</b>, open <b>http://192.168.4.1</b> and choose the .bin file.';
       if (waiter) { waiter('DONE'); waiter = null; }
@@ -1043,7 +1108,7 @@ $('labreset').onclick = () => {
 labShowCur();
 
 // ---- templates (settings only, stored on this phone)
-const PRE_IDS = ['layout', 'text', 'size', 'bold', 'frame', 'align', 'font', 'invert', 'flip', 'code', 'bartype', 'stamp', 'dither', 'fit', 'thresh', 'copies', 'density'];
+const PRE_IDS = ['layout', 'text', 'size', 'bold', 'frame', 'align', 'font', 'invert', 'flip', 'code', 'bartype', 'stamp', 'dither', 'dmode', 'auto', 'gamma', 'fit', 'thresh', 'copies', 'density'];
 const getPresets = () => { try { return JSON.parse(localStorage.getItem('lp50presets') || '{}'); } catch (e) { return {}; } };
 const putPresets = p => { try { localStorage.setItem('lp50presets', JSON.stringify(p)); } catch (e) { $('status').textContent = 'Cannot save here (private mode?)'; } };
 function refreshPresets(sel) {
@@ -1191,7 +1256,38 @@ buildChips();
 for (const k in STAMPS) PIX['st_' + k] = STAMPS[k];
 Object.assign(PIX, {"none": ["..######..", ".#......#.", "#......#.#", "#.....#..#", "#....#...#", "#...#....#", "#..#.....#", "#.#......#", ".#......#.", "..######.."], "list": ["#.########", "..........", "#.########", "..........", "#.########", "..........", "#.########"], "book": ["####..####", "#..#..#..#", "#..#..#..#", "#..#..#..#", "#..#..#..#", "#..#..#..#", "####..####", ".########."]});
 document.querySelectorAll('[data-ico]').forEach(el => { if (!el.style.getPropertyValue('--ico') && PIX[el.dataset.ico]) el.style.setProperty('--ico', pixURI(PIX[el.dataset.ico])); });
-['blist', 'bhead', 'brow', 'stamp', 'fast'].forEach(id => $(id).addEventListener('input', () => render()));
+['blist', 'bhead', 'brow', 'stamp', 'fast', 'dmode', 'auto', 'gamma'].forEach(id => $(id).addEventListener('input', () => render()));
+
+// cable speed: DIP switch picture and the firmware 3 command
+const DIPS = { 9600: [1, 1, 0], 19200: [0, 0, 1], 38400: [1, 0, 1], 57600: [0, 1, 1], 115200: [1, 1, 1] };
+function syncDips() {
+  const set = DIPS[$('baud').value] || DIPS[9600], box = $('dips');
+  box.textContent = '';
+  const on = document.createElement('span'); on.className = 'dipon'; on.textContent = 'ON'; box.appendChild(on);
+  for (let k = 1; k <= 8; k++) {
+    const d = document.createElement('div'); d.className = 'dip' + (k <= 3 ? (set[k - 1] ? '' : ' off') : ' na');
+    d.append(document.createElement('i'), document.createTextNode(String(k)));
+    box.appendChild(d);
+  }
+  $('baudinfo').textContent = 'ESP now: ' + curBaud + ' baud' + (+$('baud').value !== curBaud ? ' (press the button to change it)' : '');
+}
+$('baud').addEventListener('input', syncDips);
+
+// the preview shows every dot when it is at least 1:1 on screen; smaller than that, nearest-neighbour
+// scaling turns the dither pattern into moire, so let the browser average it instead
+function previewScaling() {
+  const pv = $('pv'), dots = pv.clientWidth * (window.devicePixelRatio || 1);
+  pv.style.imageRendering = dots >= W * 0.98 ? 'pixelated' : 'auto';
+}
+window.addEventListener('resize', previewScaling);
+previewScaling();
+$('baudset').onclick = async () => {
+  if (running || !(await ensureConnected())) return;
+  if (fwv < 3) { $('status').textContent = 'Needs firmware 3: use Update firmware below first'; return; }
+  const b = +$('baud').value, r = await job('B' + b + '\n', new Uint8Array(0));
+  if (r.startsWith('DONE')) { curBaud = b; $('status').textContent = 'ESP set to ' + b + ' baud'; syncDips(); render(); }
+};
+syncDips();
 
 // remembered preferences
 for (const [id, key] of [['fast', 'lp50fast'], ['sound', 'lp50sound']]) {
@@ -1255,7 +1351,7 @@ $('bprint').onclick = () => {
   runPrint(L.rows.map((row, i) => ({ row, headers: L.headers, offset: i })), Math.max(1, +$('copies').value || 1), usesCounter());
 };
 const _syncUI = syncUI;
-syncUI = function () { _syncUI(); $('stampbox').hidden = $('layout').value !== 'text'; updateBatchInfo(); };
+syncUI = function () { _syncUI(); $('stampbox').hidden = $('layout').value !== 'text'; $('gammaOut').textContent = (+$('gamma').value).toFixed(2); updateBatchInfo(); };
 
 // ready-made templates
 const GBASE = { invert: false, flip: false, frame: false, bold: true, stamp: 'none', code: '', font: 'sans', align: 'center' };

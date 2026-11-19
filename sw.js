@@ -1,5 +1,5 @@
 // LP-50 Label Studio offline cache. Bump CACHE when icons or libraries change.
-const CACHE = 'lp50-v1';
+const CACHE = 'lp50-v2';
 const CORE = ['./', './index.html', './icon.svg', './icon-32.png', './icon-180.png', './icon-192.png', './icon-512.png', './manifest.webmanifest'];
 const CDN = ['https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js',
              'https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js'];
