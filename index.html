@@ -70,6 +70,13 @@
     </div>
   </div>
 
+  <div class="card">
+    <label for="dead">Dead dot column (0 = off)</label>
+    <input type="number" id="dead" min="0" max="359" value="0">
+    <button class="ghost" id="cal" disabled>Print calibration label</button>
+    <div class="meta" style="text-align:left">Print it, find the numbered tick under the white gap, type that number above.</div>
+  </div>
+
   <button id="connect" class="ghost" style="margin:0 0 8px">Connect to printer</button>
   <button id="btn" disabled>Print</button>
   <button class="ghost" id="feed" disabled>Feed one label</button>
@@ -92,7 +99,7 @@ $('file').onchange = e => {
   };
   im.src = URL.createObjectURL(f);
 };
-['layout', 'text', 'size', 'bold', 'frame', 'dither', 'fit', 'thresh'].forEach(id => $(id).addEventListener('input', () => render()));
+['layout', 'text', 'size', 'bold', 'frame', 'dither', 'fit', 'dead', 'thresh'].forEach(id => $(id).addEventListener('input', () => render()));
 
 function layer() {
   const c = document.createElement('canvas');
@@ -162,6 +169,8 @@ function render(fit = 1) {
   }
   const gb = gray(b);
   for (let i = 0; i < W * H; i++) if (gb[i] < 128) bits[i] = 1;
+  const dc = +$('dead').value;                       // hide a dead head dot: copy its column onto the next dot
+  if (dc > 0 && dc < W - 1) for (let y = 0; y < H; y++) if (bits[y * W + dc]) { bits[y * W + dc + 1] = 1; if (dc > 0) bits[y * W + dc - 1] = 1; }
   window.bits = bits;
 
   const pv = $('pv').getContext('2d');
@@ -223,7 +232,7 @@ let rx = null, waiter = null, chunk = 128;
 
 function setConnected(on, name) {
   $('conn').textContent = on ? 'Connected: ' + name : 'Not connected';
-  $('btn').disabled = !on; $('feed').disabled = !on;
+  $('btn').disabled = !on; $('feed').disabled = !on; $('cal').disabled = !on;
   $('connect').textContent = on ? 'Reconnect' : 'Connect to printer';
 }
 
@@ -269,7 +278,7 @@ function waitResult(ms) {
 }
 
 async function job(header, data) {
-  $('btn').disabled = true; $('feed').disabled = true;
+  $('btn').disabled = true; $('feed').disabled = true; $('cal').disabled = true;
   try {
     const head = new TextEncoder().encode(header);
     const all = new Uint8Array(head.length + data.length);
@@ -286,7 +295,7 @@ async function job(header, data) {
   } catch (e) {
     $('status').textContent = 'Error: ' + e.message;
   }
-  $('btn').disabled = !rx; $('feed').disabled = !rx;
+  $('btn').disabled = !rx; $('feed').disabled = !rx; $('cal').disabled = !rx;
 }
 
 $('btn').onclick = () => {
@@ -294,6 +303,24 @@ $('btn').onclick = () => {
   render();
   const data = toPCX(window.bits);
   job('J' + data.length + ',' + $('copies').value + ',' + $('density').value + '\n', data);
+};
+// black band on top, tick every 10 columns, number every 40: the white gap in the band shows the dead column
+function calBits() {
+  const b = new Uint8Array(W * H);
+  for (let y = 0; y < 40; y++) for (let x = 0; x < W; x++) b[y * W + x] = 1;
+  for (let x = 0; x < W; x += 10) for (let y = 44; y < (x % 40 ? 56 : 66); y++) b[y * W + x] = 1;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d', { willReadFrequently: true });
+  g.fillStyle = '#fff'; g.fillRect(0, 0, W, H); g.fillStyle = '#000'; g.font = 'bold 14px sans-serif'; g.textAlign = 'center';
+  for (let x = 0; x < W; x += 40) g.fillText(String(x), Math.max(14, Math.min(W - 14, x)), 84);
+  const d = g.getImageData(0, 0, W, H).data;
+  for (let i = 0; i < W * H; i++) if (d[i * 4] < 128) b[i] = 1;
+  return b;
+}
+$('cal').onclick = () => {
+  if (!rx) return;
+  const data = toPCX(calBits());
+  job('J' + data.length + ',1,' + $('density').value + '\n', data);
 };
 $('feed').onclick = () => { if (rx) job('F\n', new Uint8Array(0)); };
 
